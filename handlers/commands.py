@@ -1,9 +1,19 @@
 from aiogram import Dispatcher, types
+from database import db_customer
+from handlers.registration import individuals
+
+
+async def get_id(msg: types.Message):
+    if msg.photo and str(msg.from_id) in ['254465569', '15362825']:
+        await msg.reply(msg.photo[-1].file_id)
 
 
 async def bot_start(msg: types.Message):
-    name = msg.from_user.first_name
-    await msg.answer(f"{name}, добро пожаловать в Stolovka Bot!")
+    customer = await db_customer.get_customer(msg.from_id)
+    if customer:
+        await msg.answer("Здесь будет главное меню бота")
+    else:
+        await individuals.start_registration(msg)
 
 
 def register(dp: Dispatcher):
