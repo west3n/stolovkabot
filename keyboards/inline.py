@@ -29,3 +29,13 @@ async def change_individual_data_reg() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(f"↩️ {back}", callback_data=back)]
     ])
     return kb
+
+
+async def change_company_data_reg() -> InlineKeyboardMarkup:
+    name, address, next_step = "Изменить имя компании", "Изменить адрес компании", "Всё верно, продолжаем регистрацию",
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(f"🧑 {name}", callback_data=name)],
+        [InlineKeyboardButton(f"🏢 {address}", callback_data=address)],
+        [InlineKeyboardButton(f"✅ {next_step}", callback_data=next_step)]
+    ])
+    return kb
