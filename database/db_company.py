@@ -1,6 +1,17 @@
 from database.db_connection import connect
 
 
+async def get_company_data(company_id):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT * FROM stolovka_company WHERE id = %s", (company_id,))
+        return cur.fetchone()
+    # Выдача: [0]:id, [1]:name, [2]:address, [3]:secret_key
+    finally:
+        cur.close()
+        db.close()
+
+
 async def get_all_companies_names():
     db, cur = connect()
     try:

@@ -7,7 +7,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.utils.exceptions import MessageToDeleteNotFound, MessageIdentifierNotSpecified
 
-from database import db_company
+from database import db_company, db_customer
 from keyboards import inline, reply
 
 
@@ -69,8 +69,8 @@ async def handle_company_address(msg: types.Message, state: FSMContext):
         pass
     async with state.proxy() as data:
         data['address'] = msg.text
-    await msg.answer(f"Адрес записан! Проверьте данные еще раз:\n\nИмя компании: "
-                     f"{data.get('name')}\nАдрес:{data.get('address')}",
+    await msg.answer(f"Адрес записан! Проверьте данные еще раз:\n\n<b>Имя компании:</b> "
+                     f"{data.get('name')}\n<b>Адрес:</b> {data.get('address')}",
                      reply_markup=await inline.change_company_data_reg())
     await RegistrationCompany.next()
 

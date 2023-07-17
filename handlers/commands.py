@@ -10,10 +10,13 @@ async def get_id(msg: types.Message):
 
 async def bot_start(msg: types.Message):
     customer = await db_customer.get_customer(msg.from_id)
-    if customer:
-        await msg.answer("Здесь будет главное меню бота")
+    if msg.get_args():
+        print(msg.get_args())
     else:
-        await individuals.start_registration(msg)
+        if customer:
+            await msg.answer("Здесь будет главное меню бота")
+        else:
+            await individuals.start_registration(msg)
 
 
 def register(dp: Dispatcher):
