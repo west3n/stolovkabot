@@ -1,7 +1,6 @@
 import re
 import string
 import random
-import decouple
 
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
@@ -15,7 +14,12 @@ from keyboards import inline, reply
 class RegistrationCompany(StatesGroup):
     name = State()
     address = State()
+    finish_company = State()
     update = State()
+    user_name = State()
+    user_phone = State()
+    user_confirm = State()
+    user_update = State()
 
 
 def generate_key():
@@ -90,13 +94,292 @@ async def handle_company_update(call: types.CallbackQuery, state: FSMContext):
             company_id = await db_company.add_new_company(data, secret_key)
             data['start_message'] = start_message.message_id
             data['company_id'] = company_id
-            await RegistrationCompany.next()
+            await state.set_state(RegistrationCompany.user_name.state)
     else:
-        pass
+        update_message = await call.message.edit_text(f'Хорошо, вы хотите {call.data.lower()}. Введите новые данные:')
+        await state.set_state(RegistrationCompany.update.state)
+        async with state.proxy() as data:
+            data['update'] = call.data
+            data['update_message'] = update_message.message_id
+
+
+async def handle_new_update_company(msg: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        if data.get('update') == 'Изменить адрес компании':
+            await state.update_data({"address": msg.text})
+            try:
+                await msg.delete()
+                await msg.bot.delete_message(msg.chat.id, data.get('update_message'))
+            except MessageToDeleteNotFound:
+                pass
+            await msg.answer(f"Новый адрес записан! Проверьте данные еще раз:\n\n<b>Имя компании:</b> "
+                             f"{data.get('name')}\n<b>Адрес: {msg.text}</b>",
+                             reply_markup=await inline.change_company_data_reg())
+        else:
+            await state.update_data({'name': msg.text})
+            try:
+                await msg.delete()
+                await msg.bot.delete_message(msg.chat.id, data.get('update_message'))
+            except MessageToDeleteNotFound:
+                pass
+            await msg.answer(f"Новое имя компании записано!! Проверьте данные еще раз:\n\n<b>Имя компании:</b> "
+                             f"{msg.text}\n<b>Адрес:</b> {data.get('address')}",
+                             reply_markup=await inline.change_company_data_reg())
+        await state.set_state(RegistrationCompany.finish_company.state)
+
+
+async def handle_user_name(msg: types.Message, state: FSMContext):
+    pattern = r'^[А-ЯЁ][а-яё]+\s[А-ЯЁ][а-яё]+$'
+    if not re.match(pattern, msg.text):
+        await msg.delete()
+        alarm_message = await msg.answer(
+            "❌ Пожалуйста, введите своё имя в формате Имя Фамилия на <b>русском языке</b>")
+        async with state.proxy() as data:
+            data['alarm_message'] = alarm_message.message_id
+    else:
+        async with state.proxy() as data:
+            data['name'] = msg.text
+            try:
+                await msg.delete()
+            except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                pass
+            try:
+                await msg.bot.delete_message(msg.chat.id, data.get('start_message'))
+            except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                pass
+            try:
+                await msg.bot.delete_message(msg.chat.id, data.get('alarm_message'))
+            except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                pass
+            phone_message = await msg.answer(
+                f"{data.get('name')}, я сохранил ваше имя!"
+                f"\n\nТеперь введите номер телефона (в формате +79180000000 или 89180000000) или нажмите кнопку ниже:",
+                reply_markup=await reply.contact())
+            data['phone_message'] = phone_message.message_id
+            await RegistrationCompany.next()
+
+
+async def handle_user_phone(msg: types.Message, state: FSMContext):
+    if msg.text:
+        if msg.text.startswith('+7') or msg.text.startswith('7') or msg.text.startswith('8'):
+            digits = msg.text.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+            if digits.isdigit() and len(digits) == 11:
+                async with state.proxy() as data:
+                    data['phone'] = msg.text
+                    try:
+                        await msg.delete()
+                    except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                        pass
+                    try:
+                        await msg.bot.delete_message(msg.chat.id, data.get('phone_message'))
+                    except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                        pass
+                    try:
+                        await msg.bot.delete_message(msg.chat.id, data.get('wrong_format_1'))
+                    except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                        pass
+                    try:
+                        await msg.bot.delete_message(msg.chat.id, data.get('wrong_format_2'))
+                    except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                        pass
+                    await msg.answer("Отлично! Проверим ваши данные:"
+                                     f"\n\n<b>Имя:</b> <em>{data.get('name')}</em>"
+                                     f"\n<b>Номер телефона:</b> <em>{data.get('phone')}</em>"
+                                     f"\n\nДанные верны?",
+                                     reply_markup=await inline.confirm_individual_registration())
+                    await RegistrationCompany.next()
+            else:
+                await msg.delete()
+                wrong_format = await msg.answer(
+                    "❌ Количество цифр в телефоне не может быть меньше 11, попробуйте еще раз!")
+                async with state.proxy() as data:
+                    data['wrong_format_1'] = wrong_format.message_id
+        else:
+            await msg.delete()
+            wrong_format = await msg.answer(
+                "❌ Формат номера телефона должен быть +79180000000 или 89180000000, попробуйте еще раз!")
+            async with state.proxy() as data:
+                data['wrong_format_2'] = wrong_format.message_id
+    elif msg.contact:
+        async with state.proxy() as data:
+            data['phone'] = msg.contact.phone_number
+        try:
+            await msg.delete()
+        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+            pass
+        try:
+            await msg.bot.delete_message(msg.chat.id, data.get('phone_message'))
+        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+            pass
+        try:
+            await msg.bot.delete_message(msg.chat.id, data.get('wrong_format_1'))
+        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+            pass
+        try:
+            await msg.bot.delete_message(msg.chat.id, data.get('wrong_format_2'))
+        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+            pass
+        await msg.answer("Отлично! Проверим ваши данные:"
+                         f"\n\n<b>Имя:</b> <em>{data.get('name')}</em>"
+                         f"\n<b>Номер телефона:</b> <em>{data.get('phone')}</em>"
+                         f"\n\nДанные верны?",
+                         reply_markup=await inline.confirm_individual_registration())
+        await RegistrationCompany.next()
+
+
+async def handle_user_confirm(call: types.CallbackQuery, state: FSMContext):
+    if call.data == "Назад":
+        async with state.proxy() as data:
+            await call.message.edit_text(
+                "Проверим ваши данные еще раз:"
+                f"\n\n<b>Имя:</b> <em>{data.get('name')}</em>"
+                f"\n<b>Номер телефона:</b> <em>{data.get('phone')}</em>"
+                f"\n\nДанные верны?",
+                reply_markup=await inline.confirm_individual_registration())
+    elif call.data == 'Да':
+        async with state.proxy() as data:
+            secret_key = await db_company.get_company_data(data.get('company_id'))
+            text = f"Данные успешно сохранены! Вам необходимо сохранить ключ, по которому будут регистрироваться " \
+                   f"сотрудники вашей компании: `{secret_key[3]}` (копируется касанием)" \
+                   f"\n\nТакже для более удобного входа можно входить по специальной ссылке: " \
+                   f"\n\n`https://t.me/stolovka_devbot?start={secret_key[3]}` (копируется касанием)" \
+                   f"\n\nТеперь перейдем к составлению комплексного обеда." \
+                   "\n\nВы всегда сможете изменить номер телефона и адрес доставки в 'Профиле'"
+            special_chars = ['_', '.', '*', '[', ']', '(', ')', '~', '>', '#', '+', '-', '=', '|', '{', '}', '!']
+            for char in special_chars:
+                escaped_char = '\\' + char
+                text = text.replace(char, escaped_char)
+            await call.message.edit_text(text, parse_mode=types.ParseMode.MARKDOWN_V2)
+            await db_customer.insert_individual_customer(data, call.from_user.id)
+        await state.finish()
+    elif call.data == "Нет":
+        await call.message.edit_text("Какой из параметров вы хотите изменить?",
+                                     reply_markup=await inline.change_user_data_reg())
+    else:
+        if call.data == 'Номер':
+            await call.message.delete()
+            new_data_message = await call.message.answer(
+                f"Вы хотите изменить {call.data}. "
+                f"Введите новые данные или нажмите кнопку ниже:",
+                reply_markup=await reply.contact())
+            async with state.proxy() as data:
+                data['new_data_message'] = new_data_message.message_id
+        else:
+            new_data_message = await call.message.edit_text(f"Вы хотите изменить {call.data}. Введите новые данные:")
+            async with state.proxy() as data:
+                data['new_data_message'] = new_data_message.message_id
+        async with state.proxy() as data:
+            data['update'] = call.data
+        await RegistrationCompany.next()
+
+
+async def handle_user_update(msg: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        if data.get('update') == "Номер":
+            if msg.text:
+                if msg.text.startswith('+7') or msg.text.startswith('7') or msg.text.startswith('8'):
+                    digits = msg.text.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')',
+                                                                                                                  '')
+                    if digits.isdigit() and len(digits) == 11:
+                        await state.update_data({'phone': msg.text})
+                        try:
+                            await msg.delete()
+                        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                            pass
+                        try:
+                            await msg.bot.delete_message(msg.chat.id, data.get('phone_message'))
+                        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                            pass
+                        try:
+                            await msg.bot.delete_message(msg.chat.id, data.get('wrong_format_1'))
+                        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                            pass
+                        try:
+                            await msg.bot.delete_message(msg.chat.id, data.get('wrong_format_2'))
+                        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                            pass
+                        try:
+                            await msg.bot.delete_message(msg.chat.id, data.get('new_data_message'))
+                        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                            pass
+                        await msg.answer("Отлично! Проверим ваши данные:"
+                                         f"\n\n<b>Имя:</b> <em>{data.get('name')}</em>"
+                                         f"\n<b>Адрес доставки:</b> <em>{data.get('address')}</em>"
+                                         f"\n<b>Номер телефона:</b> <em>{msg.text}</em>"
+                                         f"\n\nДанные верны?",
+                                         reply_markup=await inline.confirm_individual_registration())
+                        await state.set_state(RegistrationCompany.user_confirm.state)
+                    else:
+                        await msg.delete()
+                        wrong_format = await msg.answer(
+                            "❌ Количество цифр в телефоне не может быть меньше 11, попробуйте еще раз!")
+                        data['wrong_format_1'] = wrong_format.message_id
+                else:
+                    await msg.delete()
+                    wrong_format = await msg.answer(
+                        "❌ Формат номера телефона должен быть +79180000000 или 89180000000, попробуйте еще раз!")
+                    data['wrong_format_2'] = wrong_format.message_id
+            elif msg.contact:
+                await state.update_data({'phone': msg.contact.phone_number})
+                try:
+                    await msg.delete()
+                except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                    pass
+                try:
+                    await msg.bot.delete_message(msg.chat.id, data.get('phone_message'))
+                except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                    pass
+                try:
+                    await msg.bot.delete_message(msg.chat.id, data.get('wrong_format_1'))
+                except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                    pass
+                try:
+                    await msg.bot.delete_message(msg.chat.id, data.get('wrong_format_2'))
+                except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                    pass
+                try:
+                    await msg.bot.delete_message(msg.chat.id, data.get('new_data_message'))
+                except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                    pass
+                await msg.answer("Отлично! Проверим ваши данные:"
+                                 f"\n\n<b>Имя:</b> <em>{data.get('name')}</em>"
+                                 f"\n<b>Адрес доставки:</b> <em>{data.get('address')}</em>"
+                                 f"\n<b>Номер телефона:</b> <em>{msg.contact.phone_number}</em>"
+                                 f"\n\nДанные верны?",
+                                 reply_markup=await inline.confirm_individual_registration())
+                await state.set_state(RegistrationCompany.user_confirm.state)
+        if data.get('update') == "Имя":
+            pattern = r'^[А-ЯЁ][а-яё]+\s[А-ЯЁ][а-яё]+$'
+            if not re.match(pattern, msg.text):
+                await msg.delete()
+                alarm_message = await msg.answer(
+                    "❌ Пожалуйста, введите своё имя в формате Имя Фамилия на <b>русском языке</b>")
+                data['alarm_message'] = alarm_message.message_id
+            else:
+                await state.update_data({"name": msg.text})
+                await state.set_state(RegistrationCompany.user_confirm.state)
+                await msg.delete()
+                try:
+                    await msg.bot.delete_message(msg.chat.id, data.get('new_data_message'))
+                except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+                    pass
+                await msg.answer("Отлично! Проверим ваши данные еще раз:"
+                                 f"\n\n<b>Имя:</b> <em>{msg.text}</em>"
+                                 f"\n<b>Адрес доставки:</b> <em>{data.get('address')}</em>"
+                                 f"\n<b>Номер телефона:</b> <em>{data.get('phone')}</em>"
+                                 f"\n\nДанные верны?",
+                                 reply_markup=await inline.confirm_individual_registration())
 
 
 def register(dp: Dispatcher):
     dp.register_callback_query_handler(registration_company_start, text='Для компании')
     dp.register_message_handler(handle_company_name, state=RegistrationCompany.name)
     dp.register_message_handler(handle_company_address, state=RegistrationCompany.address)
-    dp.register_callback_query_handler(handle_company_update, state=RegistrationCompany.update)
+    dp.register_callback_query_handler(handle_company_update, state=RegistrationCompany.finish_company)
+    dp.register_message_handler(handle_new_update_company, state=RegistrationCompany.update)
+    dp.register_message_handler(handle_user_name, state=RegistrationCompany.user_name)
+    dp.register_message_handler(handle_user_phone, content_types=['text', 'contact'],
+                                state=RegistrationCompany.user_phone)
+    dp.register_callback_query_handler(handle_user_confirm, state=RegistrationCompany.user_confirm)
+    dp.register_message_handler(handle_user_update, content_types=['text', 'contact'],
+                                state=RegistrationCompany.user_update)

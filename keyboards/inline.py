@@ -39,3 +39,13 @@ async def change_company_data_reg() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(f"✅ {next_step}", callback_data=next_step)]
     ])
     return kb
+
+
+async def change_user_data_reg() -> InlineKeyboardMarkup:
+    name, phone, back = "Имя", "Номер", "Назад"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(f"🧑 {name}", callback_data=name),
+         InlineKeyboardButton(f"📞 {phone}", callback_data=phone)],
+        [InlineKeyboardButton(f"↩️ {back}", callback_data=back)]
+    ])
+    return kb

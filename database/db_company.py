@@ -21,3 +21,6 @@ async def add_new_company(data, secret_key):
     finally:
         cur.close()
         db.close()
+
+
+

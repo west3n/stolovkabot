@@ -182,7 +182,6 @@ async def handle_individual_confirm(call: types.CallbackQuery, state: FSMContext
         async with state.proxy() as data:
             await db_customer.insert_individual_customer(data, call.from_user.id)
         await state.finish()
-
     elif call.data == "Нет":
         await call.message.edit_text("Какой из параметров вы хотите изменить?",
                                      reply_markup=await inline.change_individual_data_reg())
