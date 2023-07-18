@@ -12,6 +12,7 @@ from keyboards import inline, reply
 
 
 class RegistrationCompany(StatesGroup):
+    args = State()
     name = State()
     address = State()
     finish_company = State()
@@ -26,6 +27,50 @@ def generate_key():
     characters = string.ascii_letters + string.digits
     key = ''.join(random.choice(characters) for _ in range(6))
     return key
+
+
+async def registration_get_company_key(call: types.CallbackQuery, state: FSMContext):
+    try:
+        await call.message.delete()
+    except MessageToDeleteNotFound:
+        pass
+    reg_start = await call.message.answer('🔑 Введите ключ своей компании:')
+    await RegistrationCompany.args.set()
+    await state.update_data({"reg_start": reg_start.message_id})
+
+
+async def handle_company_key(msg: types.Message, state: FSMContext):
+    try:
+        async with state.proxy() as data:
+            await msg.delete()
+    except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+        pass
+    try:
+        await msg.bot.delete_message(msg.from_id, data.get('reg_start'))
+    except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+        pass
+    try:
+        await msg.bot.delete_message(msg.from_id, data.get('error_message'))
+    except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+        pass
+    if len(msg.text) == 6:
+        if msg.text in await db_company.get_all_key_list():
+            company_data = await db_company.get_company_data_by_key(msg.text)
+            start_message = await msg.answer(f"Вы зашли в бота через ключ компании <b>{company_data[1]}</b>."
+                                             f"\n\nДля начала регистрации, введите свои <b>Имя</b> и <b>Фамилию</b>"
+                                             f"\n\nНапример, Иван Иванов")
+            await RegistrationCompany.user_name.set()
+            async with state.proxy() as data:
+                data['start_message'] = start_message.message_id
+                data['company_id'] = company_data[0]
+                data['address'] = company_data[2]
+                data['args'] = msg.text
+        else:
+            error_message = await msg.answer('Данного ключа нет в списке, попробуйте ввести другой!')
+            await state.update_data({"error_message": error_message.message_id})
+    else:
+        error_message = await msg.answer('Длина ключа должна быть 6 символов! Попробуйте заново!')
+        await state.update_data({"error_message": error_message.message_id})
 
 
 async def registration_company_start(call: types.CallbackQuery, state: FSMContext):
@@ -54,6 +99,7 @@ async def handle_company_name(msg: types.Message, state: FSMContext):
     else:
         async with state.proxy() as data:
             data['name'] = msg.text
+            data['args'] = None
         name_msg = await msg.answer(f"🥳 Отлично! Название компании: {msg.text}"
                                     "\n\nТеперь нам нужен адрес для доставки:")
         await RegistrationCompany.next()
@@ -238,13 +284,19 @@ async def handle_user_confirm(call: types.CallbackQuery, state: FSMContext):
                 reply_markup=await inline.confirm_individual_registration())
     elif call.data == 'Да':
         async with state.proxy() as data:
+            args = data.get('args')
             secret_key = await db_company.get_company_data(data.get('company_id'))
-            text = f"Данные успешно сохранены! Вам необходимо сохранить ключ, по которому будут регистрироваться " \
-                   f"сотрудники вашей компании: `{secret_key[3]}` (копируется касанием)" \
-                   f"\n\nТакже для более удобного входа можно входить по специальной ссылке: " \
-                   f"\n\n`https://t.me/stolovka_devbot?start={secret_key[3]}` (копируется касанием)" \
-                   f"\n\nТеперь перейдем к составлению комплексного обеда." \
-                   "\n\nВы всегда сможете изменить номер телефона и адрес доставки в 'Профиле'"
+            if args:
+                text = f'Данные успешно сохранены!' \
+                       f"\n\nТеперь перейдем к составлению комплексного обеда." \
+                       f"\n\nВы всегда сможете изменить номер телефона и адрес доставки в 'Профиле'"
+            else:
+                text = f"Данные успешно сохранены! Вам необходимо сохранить ключ, по которому будут регистрироваться " \
+                       f"сотрудники вашей компании: `{secret_key[3]}` (копируется касанием)" \
+                       f"\n\nТакже для более удобного входа можно входить по специальной ссылке: " \
+                       f"\n\n`https://t.me/stolovka_devbot?start={secret_key[3]}` (копируется касанием)" \
+                       f"\n\nТеперь перейдем к составлению комплексного обеда." \
+                       "\n\nВы всегда сможете изменить номер телефона и адрес доставки в 'Профиле'"
             special_chars = ['_', '.', '*', '[', ']', '(', ')', '~', '>', '#', '+', '-', '=', '|', '{', '}', '!']
             for char in special_chars:
                 escaped_char = '\\' + char
@@ -372,7 +424,9 @@ async def handle_user_update(msg: types.Message, state: FSMContext):
 
 
 def register(dp: Dispatcher):
-    dp.register_callback_query_handler(registration_company_start, text='Для компании')
+    dp.register_callback_query_handler(registration_get_company_key, text='Хочу войти по уникальному коду')
+    dp.register_message_handler(handle_company_key, state=RegistrationCompany.args)
+    dp.register_callback_query_handler(registration_company_start, text='Зарегистрировать компанию')
     dp.register_message_handler(handle_company_name, state=RegistrationCompany.name)
     dp.register_message_handler(handle_company_address, state=RegistrationCompany.address)
     dp.register_callback_query_handler(handle_company_update, state=RegistrationCompany.finish_company)

@@ -1,4 +1,6 @@
 from aiogram import Dispatcher, types
+from aiogram.dispatcher import FSMContext
+
 from database import db_customer
 from handlers.registration import individuals
 
@@ -8,15 +10,13 @@ async def get_id(msg: types.Message):
         await msg.reply(msg.photo[-1].file_id)
 
 
-async def bot_start(msg: types.Message):
+async def bot_start(msg: types.Message, state: FSMContext):
     customer = await db_customer.get_customer(msg.from_id)
-    if msg.get_args():
-        print(msg.get_args())
+    if customer:
+        await msg.answer("Здесь будет главное меню бота")
     else:
-        if customer:
-            await msg.answer("Здесь будет главное меню бота")
-        else:
-            await individuals.start_registration(msg)
+        await individuals.start_registration(msg, msg.get_args(), state) if msg.get_args() \
+            else await individuals.start_registration(msg, None, state)
 
 
 def register(dp: Dispatcher):

@@ -2,10 +2,11 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
 async def first_choice() -> InlineKeyboardMarkup:
-    individual, corporate_entity, has_key = "Самостоятельно", "Для компании", "Хочу войти по уникальному коду"
+    individual, corporate_entity, has_key = "Зарегистрироваться как физ.лицо", "Зарегистрировать компанию", \
+        "Хочу войти по уникальному коду"
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(f"🧑 {individual}", callback_data=individual),
-         InlineKeyboardButton(f"👪 {corporate_entity}", callback_data=corporate_entity)],
+        [InlineKeyboardButton(f"🧑 {individual}", callback_data=individual)],
+        [InlineKeyboardButton(f"👪 {corporate_entity}", callback_data=corporate_entity)],
         [InlineKeyboardButton(f"🔑 {has_key}", callback_data=has_key)]
     ])
     return kb

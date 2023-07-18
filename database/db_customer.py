@@ -15,8 +15,9 @@ async def get_customer(tg_id):
 async def insert_individual_customer(data, tg_id):
     db, cur = connect()
     try:
-        cur.execute("INSERT INTO stolovka_customer (tg_id, phone_number, name, address) "
-                    "VALUES (%s, %s, %s, %s)", (tg_id, data.get('phone'), data.get('name'), data.get('address')))
+        cur.execute("INSERT INTO stolovka_customer (tg_id, phone_number, name, company_id, address) "
+                    "VALUES (%s, %s, %s, %s, %s)", (tg_id, data.get('phone'), data.get('name'), data.get('company_id'),
+                                                data.get('address'),))
         db.commit()
     finally:
         cur.close()

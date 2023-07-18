@@ -6,8 +6,9 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.utils.exceptions import MessageToDeleteNotFound, MessageIdentifierNotSpecified
 
-from database import db_customer
+from database import db_customer, db_company
 from keyboards import inline, reply
+from handlers.registration.company import RegistrationCompany
 
 
 class RegistrationUser(StatesGroup):
@@ -18,11 +19,32 @@ class RegistrationUser(StatesGroup):
     update = State()
 
 
-async def start_registration(msg: types.Message):
-    await msg.answer_photo(photo=decouple.config("START_REGISTRATION"),
-                           caption=f"{msg.from_user.first_name}, добро пожаловать в <b>Classic Food!</b> 🙋"
-                                   f"\n\nВыберите тип регистрации для доставки комплексных обедов:",
-                           reply_markup=await inline.first_choice())
+async def start_registration(msg: types.Message, args, state: FSMContext):
+    if args:
+        try:
+            company_data = await db_company.get_company_data_by_key(args)
+            start_message = await msg.answer_photo(
+                photo=decouple.config("START_REGISTRATION"),
+                caption=f"{msg.from_user.first_name}, добро пожаловать в <b>Classic Food!</b> 🙋"
+                        f"\n\nВы зашли в бота через ключ компании <b>{company_data[1]}</b>."
+                        f"\n\nДля начала регистрации, введите свои <b>Имя</b> и <b>Фамилию</b>"
+                        f"\n\nНапример, Иван Иванов")
+            await state.set_state(RegistrationCompany.user_name.state)
+            async with state.proxy() as data:
+                data['start_message'] = start_message.message_id
+                data['company_id'] = company_data[0]
+                data['address'] = company_data[2]
+                data['args'] = args
+        except TypeError:
+            await msg.answer_photo(
+                photo=decouple.config("START_REGISTRATION"),
+                caption=f"{msg.from_user.first_name}, добро пожаловать в <b>Classic Food!</b> 🙋"
+                        f"\n\nДанный ключ компании недействителен! Жмите /start, чтобы начать регистрацию!")
+    else:
+        await msg.answer_photo(photo=decouple.config("START_REGISTRATION"),
+                               caption=f"{msg.from_user.first_name}, добро пожаловать в <b>Classic Food!</b> 🙋"
+                                       f"\n\nВыберите тип регистрации для доставки комплексных обедов:",
+                               reply_markup=await inline.first_choice())
 
 
 async def registration_individual_start(call: types.CallbackQuery, state: FSMContext):
@@ -39,7 +61,7 @@ async def registration_individual_start(call: types.CallbackQuery, state: FSMCon
         start_message = await call.message.answer(f"Введите свои *Имя* и *Фамилию* \n\nНапример, '`{full_name}`'",
                                                   parse_mode=types.ParseMode.MARKDOWN_V2)
     else:
-        start_message = await call.message.answer(f"Введите свои <b>Имя</b> и <b>Фамилию</b> "
+        start_message = await call.message.answer(f"Введите свои <b>Имя</b> и <b>Фамилию</b>"
                                                   f"\n\nНапример, Иван Иванов")
     await RegistrationUser.name.set()
     async with state.proxy() as data:
@@ -56,6 +78,7 @@ async def handle_individual_name(msg: types.Message, state: FSMContext):
     else:
         async with state.proxy() as data:
             data['name'] = msg.text
+            data['company_id'] = None
             try:
                 await msg.delete()
             except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
@@ -316,7 +339,7 @@ async def handle_individual_update(msg: types.Message, state: FSMContext):
 
 
 def register(dp: Dispatcher):
-    dp.register_callback_query_handler(registration_individual_start, text='Самостоятельно')
+    dp.register_callback_query_handler(registration_individual_start, text='Зарегистрироваться как физ.лицо')
     dp.register_message_handler(handle_individual_name, state=RegistrationUser.name)
     dp.register_message_handler(handle_individual_address, state=RegistrationUser.address)
     dp.register_message_handler(handle_individual_phone, content_types=['text', 'contact'],
