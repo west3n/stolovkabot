@@ -1,3 +1,4 @@
+import asyncio
 import re
 import decouple
 
@@ -6,6 +7,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.utils.exceptions import MessageToDeleteNotFound, MessageIdentifierNotSpecified
 
+import handlers.main_menu
 from database import db_customer, db_company
 from keyboards import inline, reply
 from handlers.registration.company import RegistrationCompany
@@ -205,6 +207,9 @@ async def handle_individual_confirm(call: types.CallbackQuery, state: FSMContext
         async with state.proxy() as data:
             await db_customer.insert_individual_customer(data, call.from_user.id)
         await state.finish()
+        await asyncio.sleep(3)
+        await call.message.delete()
+        await handlers.main_menu.main_menu_call(call)
     elif call.data == "Нет":
         await call.message.edit_text("Какой из параметров вы хотите изменить?",
                                      reply_markup=await inline.change_individual_data_reg())

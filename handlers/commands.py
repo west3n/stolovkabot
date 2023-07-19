@@ -3,6 +3,7 @@ from aiogram.dispatcher import FSMContext
 
 from database import db_customer
 from handlers.registration import individuals
+from handlers import main_menu
 
 
 async def get_id(msg: types.Message):
@@ -13,7 +14,7 @@ async def get_id(msg: types.Message):
 async def bot_start(msg: types.Message, state: FSMContext):
     customer = await db_customer.get_customer(msg.from_id)
     if customer:
-        await msg.answer("Здесь будет главное меню бота")
+        await main_menu.main_menu_msg(msg)
     else:
         await individuals.start_registration(msg, msg.get_args(), state) if msg.get_args() \
             else await individuals.start_registration(msg, None, state)

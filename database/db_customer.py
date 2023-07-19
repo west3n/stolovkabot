@@ -22,3 +22,4 @@ async def insert_individual_customer(data, tg_id):
     finally:
         cur.close()
         db.close()
+

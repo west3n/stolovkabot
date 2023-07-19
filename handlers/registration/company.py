@@ -1,3 +1,4 @@
+import asyncio
 import re
 import string
 import random
@@ -7,6 +8,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.utils.exceptions import MessageToDeleteNotFound, MessageIdentifierNotSpecified
 
+import handlers.main_menu
 from database import db_company, db_customer
 from keyboards import inline, reply
 
@@ -303,6 +305,8 @@ async def handle_user_confirm(call: types.CallbackQuery, state: FSMContext):
                 text = text.replace(char, escaped_char)
             await call.message.edit_text(text, parse_mode=types.ParseMode.MARKDOWN_V2)
             await db_customer.insert_individual_customer(data, call.from_user.id)
+            await asyncio.sleep(3)
+            await handlers.main_menu.main_menu_call(call)
         await state.finish()
     elif call.data == "Нет":
         await call.message.edit_text("Какой из параметров вы хотите изменить?",
