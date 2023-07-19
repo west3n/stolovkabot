@@ -50,3 +50,34 @@ async def change_user_data_reg() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(f"↩️ {back}", callback_data=back)]
     ])
     return kb
+
+
+async def main_menu() -> InlineKeyboardMarkup:
+    complex_lunch, assembly_lunch, profile = "Заказать комплексный обед", "Соcтавить обед самостоятельно", "Мой профиль"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(f"🍱 {complex_lunch}", callback_data=complex_lunch)],
+        [InlineKeyboardButton(f"🥘 {assembly_lunch}", callback_data=assembly_lunch)],
+        [InlineKeyboardButton(f"️🪪 {profile}", callback_data=profile)]
+    ])
+    return kb
+
+
+async def profile_menu(company) -> InlineKeyboardMarkup:
+    if company is not None:
+        order, phone, back = "Мои заказы", "Изменить номер телефона", "Главное меню"
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(f"🍽 {order}", callback_data=order)],
+            [InlineKeyboardButton(f"📞 {phone}", callback_data=phone)],
+            [InlineKeyboardButton(f"↩️ {back}", callback_data=back)]
+        ])
+    else:
+        order, phone, address, back = "Мои заказы", "Изменить номер телефона", "Изменить адрес доставки", "Главное меню"
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(f"🍽 {order}", callback_data=order)],
+            [InlineKeyboardButton(f"📞 {phone}", callback_data=phone)],
+            [InlineKeyboardButton(f"📍 {address}", callback_data=address)],
+            [InlineKeyboardButton(f"↩️ {back}", callback_data=back)]
+        ])
+    return kb
+
+

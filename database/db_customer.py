@@ -23,3 +23,22 @@ async def insert_individual_customer(data, tg_id):
         cur.close()
         db.close()
 
+
+async def update_phone(tg_id, phone):
+    db, cur = connect()
+    try:
+        cur.execute("UPDATE stolovka_customer SET phone_number = %s WHERE tg_id = %s", (phone, tg_id,))
+        db.commit()
+    finally:
+        cur.close()
+        db.close()
+
+
+async def update_address(tg_id, address):
+    db, cur = connect()
+    try:
+        cur.execute("UPDATE stolovka_customer SET address = %s WHERE tg_id = %s", (address, tg_id,))
+        db.commit()
+    finally:
+        cur.close()
+        db.close()

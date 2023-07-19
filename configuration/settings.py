@@ -6,6 +6,7 @@ from decouple import config
 from handlers.commands import register as reg_handlers
 from handlers.registration.individuals import register as reg_registration_individuals
 from handlers.registration.company import register as reg_registration_company
+from handlers.profile import register as reg_profile
 
 bot_token = config("BOT_TOKEN")
 logger = logging.getLogger(__name__)
@@ -21,3 +22,4 @@ def register_handlers(dp: Dispatcher):
     reg_handlers(dp)
     reg_registration_individuals(dp)
     reg_registration_company(dp)
+    reg_profile(dp)
