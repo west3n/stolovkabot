@@ -81,3 +81,64 @@ async def profile_menu(company) -> InlineKeyboardMarkup:
     return kb
 
 
+async def order_complex_choice() -> InlineKeyboardMarkup:
+    today, many_days, back = "Заказать на сегодня", "Заказать на несколько дней", "Назад"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(f"🍽 {today}", callback_data=today)],
+        [InlineKeyboardButton(f"📅 {many_days}", callback_data=many_days)],
+        [InlineKeyboardButton(f"️↩️ {back}", callback_data='back_order_complex')]
+    ])
+    return kb
+
+
+async def one_day_complex_paginate(results, current_index) -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    if current_index == 0:
+        markup.row(
+            InlineKeyboardButton('◀️ Главное меню', callback_data='main_menu_complex'),
+            InlineKeyboardButton("След.ланч ▶️", callback_data=f"next:{current_index}"),
+        )
+        markup.row(InlineKeyboardButton('🍴 Добавить в заказ', callback_data=f'order_{current_index}'))
+    elif current_index == len(results) - 1:
+        markup.row(
+            InlineKeyboardButton("◀️ Пред. ланч", callback_data=f"prev:{current_index}"),
+            InlineKeyboardButton('🔽 Главное меню', callback_data='main_menu_complex'),
+        )
+        markup.row(InlineKeyboardButton('🍴 Добавить в заказ', callback_data=f'order_{current_index}'))
+    else:
+        markup.row(
+            InlineKeyboardButton("◀️ Пред.ланч", callback_data=f"prev:{current_index}"),
+            InlineKeyboardButton("След.ланч ▶️", callback_data=f"next:{current_index}")
+        )
+        markup.row(InlineKeyboardButton('🍴 Добавить в заказ', callback_data=f'order_{current_index}'))
+        markup.row(InlineKeyboardButton('🔽 Главное меню', callback_data='main_menu_complex'))
+    markup.add()
+    return markup
+
+
+async def order_complex_choice_price(lunch_id) -> InlineKeyboardMarkup:
+    full_price, price_wo_salad, price_wo_soup = await db_order_complex.get_lunch_price(lunch_id)
+    full, wo_salat, wo_soup, back = f"Добавить в корзину - {full_price} ₽", \
+        f"Добавить в корзину без салата - {price_wo_salad} ₽", \
+        f"Добавить в корзину без супа - {price_wo_soup} ₽", "Назад"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(f"️🌟 {full}", callback_data="full_price")],
+        [InlineKeyboardButton(f"🚫 {wo_salat}", callback_data="wo_salat")],
+        [InlineKeyboardButton(f"🚫 {wo_soup}", callback_data="wo_soup")],
+        [InlineKeyboardButton(f"↩️ {back}", callback_data="back_price")]
+
+    ])
+    return kb
+
+
+async def complex_count(count) -> InlineKeyboardMarkup:
+    button1, prev_, next_, done, back = "Выберите количество:", "◀️", "▶️", "Подтвердить", "Назад"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(f"️{button1}", callback_data="blablabla")],
+        [InlineKeyboardButton(f"{prev_}", callback_data=f"prevcount:{count}"),
+         InlineKeyboardButton(f"{count}", callback_data=count),
+         InlineKeyboardButton(f"{next_}", callback_data=f"nextcount:{count}")],
+        [InlineKeyboardButton(f"{done}", callback_data=f"donecount:{count}")],
+        [InlineKeyboardButton(f"↩️ {back}", callback_data="backcount")]
+    ])
+    return kb

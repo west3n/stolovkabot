@@ -21,18 +21,18 @@ class ChangeAddress(StatesGroup):
 async def handle_profile(call: types.CallbackQuery):
     user = await db_customer.get_customer(call.from_user.id)
     text = f"<b> 🪪 Ваш профиль</b>" \
-           f"\n\n<b>Имя</b>: {user[3]}"
+           f"\n\n<b>Имя</b>: {user[2]}"
     try:
-        company = await db_company.get_company_data(user[4])
+        company = await db_company.get_company_data(user[3])
         company = company[1]
     except TypeError:
         company = None
-    text += f"\n<b>Компания:</b> {company}" if user[4] is not None else ""
-    text += f"\n<b>Адрес доставки</b>: {user[5]}" \
-            f"\n<b>Номер телефона:</b> {user[2]}" \
+    text += f"\n<b>Компания:</b> {company}" if user[3] is not None else ""
+    text += f"\n<b>Адрес доставки</b>: {user[4]}" \
+            f"\n<b>Номер телефона:</b> {user[1]}" \
             f"\n\n<em>❔В этом меню вы можете изменить свои данные по кнопкам ниже, " \
             f"а также просмотреть свои заказы</em>"
-    await call.message.edit_text(text, reply_markup=await inline.profile_menu(user[4]))
+    await call.message.edit_text(text, reply_markup=await inline.profile_menu(user[3]))
 
 
 async def back_button(call: types.CallbackQuery):
@@ -67,14 +67,14 @@ async def change_phone_finish(msg: types.Message, state: FSMContext):
                     await db_customer.update_phone(msg.from_id, int(msg.text))
                     user = await db_customer.get_customer(msg.from_user.id)
                     text = f"<b> 🪪 Ваш профиль</b>" \
-                           f"\n\n<b>Имя</b>: {user[3]}"
+                           f"\n\n<b>Имя</b>: {user[2]}"
                     try:
                         company = await db_company.get_company_data(user[4])
                         company = company[1]
                     except TypeError:
                         company = None
-                    text += f"\n<b>Компания:</b> {company}" if user[4] is not None else ""
-                    text += f"\n<b>Адрес доставки</b>: {user[5]}" \
+                    text += f"\n<b>Компания:</b> {company}" if user[3] is not None else ""
+                    text += f"\n<b>Адрес доставки</b>: {user[4]}" \
                             f"\n<b>Номер телефона:</b> {msg.text}" \
                             f"\n\n<em>❔В этом меню вы можете изменить свои данные по кнопкам ниже, " \
                             f"а также просмотреть свои заказы</em>"
@@ -95,18 +95,18 @@ async def change_phone_finish(msg: types.Message, state: FSMContext):
             await db_customer.update_phone(msg.from_id, msg.contact.phone_number)
             user = await db_customer.get_customer(msg.from_user.id)
             text = f"<b> 🪪 Ваш профиль</b>" \
-                   f"\n\n<b>Имя</b>: {user[3]}"
+                   f"\n\n<b>Имя</b>: {user[2]}"
             try:
-                company = await db_company.get_company_data(user[4])
+                company = await db_company.get_company_data(user[3])
                 company = company[1]
             except TypeError:
                 company = None
-            text += f"\n<b>Компания:</b> {company}" if user[4] is not None else ""
-            text += f"\n<b>Адрес доставки</b>: {user[5]}" \
+            text += f"\n<b>Компания:</b> {company}" if user[3] is not None else ""
+            text += f"\n<b>Адрес доставки</b>: {user[4]}" \
                     f"\n<b>Номер телефона:</b> {msg.contact.phone_number}" \
                     f"\n\n<em>❔В этом меню вы можете изменить свои данные по кнопкам ниже, " \
                     f"а также просмотреть свои заказы</em>"
-            await msg.answer(text, reply_markup=await inline.profile_menu(user[4]))
+            await msg.answer(text, reply_markup=await inline.profile_menu(user[3]))
             await msg.bot.delete_message(msg.chat.id, message.message_id)
             await state.finish()
 
@@ -128,18 +128,18 @@ async def change_address_finish(msg: types.Message, state: FSMContext):
     message = await msg.answer("Ваш адрес для доставки успешно обновлен!")
     user = await db_customer.get_customer(msg.from_user.id)
     text = f"<b> 🪪 Ваш профиль</b>" \
-           f"\n\n<b>Имя</b>: {user[3]}"
+           f"\n\n<b>Имя</b>: {user[2]}"
     try:
-        company = await db_company.get_company_data(user[4])
+        company = await db_company.get_company_data(user[3])
         company = company[1]
     except TypeError:
         company = None
-    text += f"\n<b>Компания:</b> {company}" if user[4] is not None else ""
+    text += f"\n<b>Компания:</b> {company}" if user[3] is not None else ""
     text += f"\n<b>Адрес доставки</b>: {msg.text}" \
-            f"\n<b>Номер телефона:</b> {user[2]}" \
+            f"\n<b>Номер телефона:</b> {user[1]}" \
             f"\n\n<em>❔В этом меню вы можете изменить свои данные по кнопкам ниже, " \
             f"а также просмотреть свои заказы</em>"
-    await msg.answer(text, reply_markup=await inline.profile_menu(user[4]))
+    await msg.answer(text, reply_markup=await inline.profile_menu(user[3]))
     await msg.bot.delete_message(msg.from_id, message.message_id)
     await state.finish()
 
