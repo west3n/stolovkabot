@@ -57,7 +57,7 @@ async def main_menu() -> InlineKeyboardMarkup:
     complex_lunch, assembly_lunch, profile = "Заказать комплексный обед", "Соcтавить обед самостоятельно", "Мой профиль"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(f"🍱 {complex_lunch}", callback_data=complex_lunch)],
-        [InlineKeyboardButton(f"🥘 {assembly_lunch}", callback_data=assembly_lunch)],
+        [InlineKeyboardButton(f"🥘 {assembly_lunch}", callback_data=f"{assembly_lunch}/salad")],
         [InlineKeyboardButton(f"️🪪 {profile}", callback_data=profile)]
     ])
     return kb
