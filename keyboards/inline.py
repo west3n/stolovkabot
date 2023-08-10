@@ -143,3 +143,30 @@ async def complex_count(count) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(f"↩️ {back}", callback_data="backcount")]
     ])
     return kb
+
+
+async def order_custom_paginate(dish_type, current_index, results) -> InlineKeyboardMarkup:
+    transitions = {
+        'salad': ('soup', 'Перейти к выбору супа'),
+        'soup': ('maindish', 'Перейти к выбору основного блюда'),
+        'maindish': ('garnish', 'Перейти к выбору гарнира'),
+        'garnish': ('finish', 'Закончить выбор')
+    }
+    markup = InlineKeyboardMarkup()
+    prev_button = InlineKeyboardButton("◀️ Пред. блюдо", callback_data=f"prev:{current_index}")
+    next_button = InlineKeyboardButton("След.блюдо ▶️", callback_data=f"next:{current_index}")
+    add_to_order_button = InlineKeyboardButton('🍴 Добавить в заказ', callback_data=f'order_{current_index}')
+    main_menu_button = InlineKeyboardButton(f"️🌟 {transitions[dish_type][1]}",
+                                            callback_data=f"Соcтавить обед самостоятельно/{transitions[dish_type][0]}")
+    if current_index == 0:
+        markup.row(next_button)
+        markup.row(add_to_order_button)
+    elif current_index == len(results) - 1:
+        markup.row(prev_button)
+        markup.row(add_to_order_button)
+    else:
+        markup.row(prev_button, next_button)
+        markup.row(add_to_order_button)
+    markup.row(main_menu_button)
+    markup.row(InlineKeyboardButton('◀️ Главное меню', callback_data='main_menu_custom'))
+    return markup

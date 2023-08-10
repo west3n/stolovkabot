@@ -1,6 +1,6 @@
 import datetime
-
 import psycopg2
+
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
@@ -8,7 +8,7 @@ from aiogram.utils.exceptions import MessageToDeleteNotFound
 
 from database import db_order_complex, db_basket
 from keyboards import inline
-from handlers.main_menu import main_menu_call
+from handlers import main_menu
 
 weekdays = {
     0: "mon",
@@ -40,7 +40,7 @@ class ManyDayComplex(StatesGroup):
 
 
 async def back_button(call: types.CallbackQuery):
-    await main_menu_call(call)
+    await main_menu.main_menu_call(call)
 
 
 async def order_complex_handler(call: types.CallbackQuery):
@@ -107,8 +107,8 @@ async def one_day_complex_paginate(call: types.CallbackQuery, state: FSMContext)
                     call.from_user.id, f"{lunch_name} {data.get('lunch_type')} - {count}", total_price)
             await call.answer(text=f"🧺 Вы добавили в корзину:"
                                    f"\n\nКомплексный обед {lunch_name} ({data.get('lunch_type')})"
-                                   f"\nКоличество: {count} порций"
-                                   f"\n\n Общая цена: {total_price} ₽",
+                                   f"\nКоличество порций: {count}"
+                                   f"\n\n Общая цена: {total_price}₽",
                               show_alert=True)
             await call.message.edit_reply_markup(
                 reply_markup=await inline.one_day_complex_paginate(data.get('results'), data.get('current_index')))
