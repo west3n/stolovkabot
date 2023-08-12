@@ -1,5 +1,7 @@
+import datetime
+
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from database import db_order_complex
+from database import db_order_complex, db_basket
 
 
 async def first_choice() -> InlineKeyboardMarkup:
@@ -53,13 +55,21 @@ async def change_user_data_reg() -> InlineKeyboardMarkup:
     return kb
 
 
-async def main_menu() -> InlineKeyboardMarkup:
+async def main_menu(tg_id) -> InlineKeyboardMarkup:
+    basket_sum = await db_basket.get_basket_sum(tg_id)
     complex_lunch, assembly_lunch, profile = "Заказать комплексный обед", "Соcтавить обед самостоятельно", "Мой профиль"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(f"🍱 {complex_lunch}", callback_data=complex_lunch)],
         [InlineKeyboardButton(f"🥘 {assembly_lunch}", callback_data=f"{assembly_lunch}/salad")],
         [InlineKeyboardButton(f"️🪪 {profile}", callback_data=profile)]
     ])
+    if basket_sum > 0:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(f"🍱 {complex_lunch}", callback_data=complex_lunch)],
+            [InlineKeyboardButton(f"🥘 {assembly_lunch}", callback_data=f"{assembly_lunch}/salad")],
+            [InlineKeyboardButton(f"️🪪 {profile}", callback_data=profile)],
+            [InlineKeyboardButton(f"🧺 Моя корзина ({basket_sum} ₽)", callback_data="моя корзина")]
+        ])
     return kb
 
 
@@ -142,7 +152,8 @@ async def complex_count(count) -> InlineKeyboardMarkup:
     return kb
 
 
-async def order_custom_paginate(dish_type, current_index, results) -> InlineKeyboardMarkup:
+async def order_custom_paginate(tg_id, dish_type, current_index, results) -> InlineKeyboardMarkup:
+    basket_sum = await db_basket.get_basket_sum(tg_id)
     transitions = {
         'salad': ('soup', '🍲 Перейти к выбору супа'),
         'soup': ('maindish', '🍱 Перейти к выбору основного блюда'),
@@ -175,6 +186,8 @@ async def order_custom_paginate(dish_type, current_index, results) -> InlineKeyb
         markup.row(prev_step_button)
     markup.row(main_menu_button)
     markup.row(InlineKeyboardButton('◀️ Главное меню', callback_data='main_menu_custom'))
+    if basket_sum > 0:
+        markup.row(InlineKeyboardButton(f"🧺 Моя корзина ({basket_sum} ₽)", callback_data="моя корзина"))
     return markup
 
 

@@ -51,7 +51,8 @@ async def custom_order_handler_paginate(call: types.CallbackQuery, state: FSMCon
             except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
                 pass
             await state.finish()
-            await call.message.answer("Выберите один из вариантов:", reply_markup=await inline.main_menu())
+            await call.message.answer(
+                "Выберите один из вариантов:", reply_markup=await inline.main_menu(call.from_user.id))
         elif call.data.startswith('donecount'):
             dish_data = await db_order_custom.get_dish_info(data.get('dish_type'), data.get('dish_id'))
             count = data.get('count') if data.get('count') else 1
@@ -106,7 +107,8 @@ async def custom_order_handler_paginate(call: types.CallbackQuery, state: FSMCon
                 dish_type = call.data.split("/")[1]
                 if dish_type == 'finish':
                     await state.finish()
-                    await call.message.answer("Выберите один из вариантов:", reply_markup=await inline.main_menu())
+                    await call.message.answer(
+                        "Выберите один из вариантов:", reply_markup=await inline.main_menu(call.from_user.id))
             try:
                 results = await db_order_custom.get_dish_by_day(dish_type, weekday)
             except psycopg2.Error:

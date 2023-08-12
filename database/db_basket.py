@@ -81,3 +81,26 @@ async def update_basket(weekday, tg_id, order, price):
     finally:
         db.close()
         cur.close()
+
+
+async def get_basket(tg_id):
+    db, cur = connect()
+    try:
+        now = datetime.datetime.now().date()
+        cur.execute("SELECT \"order\" FROM dishes_basket WHERE date=%s AND customer_id=%s", (now, tg_id,))
+        result = cur.fetchone()
+        return result
+    finally:
+        db.close()
+        cur.close()
+
+
+async def get_basket_sum(tg_id):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT SUM(price) FROM dishes_basket WHERE customer_id=%s", (tg_id,))
+        result = cur.fetchone()
+        return int(result[0]) if result[0] else 0
+    finally:
+        db.close()
+        cur.close()
