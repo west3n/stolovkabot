@@ -8,7 +8,6 @@ from aiogram.utils.exceptions import MessageToDeleteNotFound, MessageIdentifierN
 
 from database import db_order_custom, db_basket
 from keyboards import inline
-from handlers import main_menu
 
 
 class OrderCustom(StatesGroup):
@@ -55,24 +54,21 @@ async def custom_order_handler_paginate(call: types.CallbackQuery, state: FSMCon
             await call.message.answer("Выберите один из вариантов:", reply_markup=await inline.main_menu())
         elif call.data.startswith('donecount'):
             dish_data = await db_order_custom.get_dish_info(data.get('dish_type'), data.get('dish_id'))
-            await call.message.edit_reply_markup(
-                reply_markup=await inline.order_custom_paginate(dish_type, data.get('current_index'),
-                                                                data.get('results')))
+            count = data.get('count') if data.get('count') else 1
+            await db_basket.insert_basket(weekday, call.from_user.id, f"{dish_data[1]} - {data.get('count')}",
+                                          (count * dish_data[9]))
             await call.answer(text=f"🧺 Вы добавили в корзину:"
                                    f"\n\n{dish_data[1]}"
                                    f"\nКоличество порций: {data.get('count')}"
-                                   f"\n\nОбщая цена: {int(data.get('count')) * dish_data[9]}₽",
+                                   f"\n\nОбщая цена: {count * dish_data[9]}₽",
                               show_alert=True)
-            try:
-                await db_basket.insert_basket(
-                    call.from_user.id, f"{dish_data[1]} - {data.get('count')}", (int(data.get('count')) * dish_data[9]))
-            except psycopg2.Error:
-                await db_basket.update_basket(
-                    call.from_user.id, f"{dish_data[1]} - {data.get('count')}", (int(data.get('count')) * dish_data[9]))
+            await call.message.edit_reply_markup(
+                reply_markup=await inline.order_custom_paginate(
+                    call.from_user.id, dish_type, data.get('current_index'), data.get('results')))
         elif call.data == 'backcount':
             await call.message.edit_reply_markup(
-                reply_markup=await inline.order_custom_paginate(dish_type, data.get('current_index'),
-                                                                data.get('results')))
+                reply_markup=await inline.order_custom_paginate(
+                    call.from_user.id, dish_type, data.get('current_index'), data.get('results')))
         elif call.data in map(str, range(1, 31)):
             await call.answer(f"Пока что вы выбрали {call.data} порций!")
         elif call.data == 'blablabla':
@@ -137,7 +133,8 @@ async def custom_order_handler_paginate(call: types.CallbackQuery, state: FSMCon
                         f'\n<b>Углеводы:</b> <em>{result[7]} г</em>'
                 photo = await call.message.bot.send_photo(call.from_user.id, result[3])
                 cap = await call.message.answer(
-                    text, reply_markup=await inline.order_custom_paginate(dish_type, current_index, results))
+                    text, reply_markup=await inline.order_custom_paginate(
+                        call.from_user.id, dish_type, current_index, results))
                 data['photo'] = photo.message_id
                 data['dish_type'] = dish_type
                 data['cap'] = cap.message_id
