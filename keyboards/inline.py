@@ -68,7 +68,7 @@ async def main_menu(tg_id) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(f"🍱 {complex_lunch}", callback_data=complex_lunch)],
             [InlineKeyboardButton(f"🥘 {assembly_lunch}", callback_data=f"{assembly_lunch}/salad")],
             [InlineKeyboardButton(f"️🪪 {profile}", callback_data=profile)],
-            [InlineKeyboardButton(f"🧺 Моя корзина ({basket_sum} ₽)", callback_data="моя корзина")]
+            [InlineKeyboardButton(f"🧺 Моя корзина ({basket_sum} ₽)", callback_data="Моя корзина")]
         ])
     return kb
 
@@ -116,7 +116,7 @@ async def one_day_complex_paginate(weekday, tg_id, results, current_index) -> In
         )
     markup.row(InlineKeyboardButton('🍴 Добавить в заказ', callback_data=f'order_{current_index}'))
     if basket_sum > 0:
-        markup.row(InlineKeyboardButton(f"🧺 Моя корзина ({basket_sum} ₽)", callback_data="моя корзина"))
+        markup.row(InlineKeyboardButton(f"🧺 Моя корзина ({basket_sum} ₽)", callback_data="Моя корзина"))
     if weekday:
         markup.row(InlineKeyboardButton(f"📅 Выбрать другой день", callback_data="Заказать на несколько дней"))
     markup.row(InlineKeyboardButton('🔽 Главное меню', callback_data='main_menu_complex'))
@@ -166,7 +166,7 @@ async def order_custom_paginate(tg_id, dish_type, current_index, results) -> Inl
         'garnish': ('maindish', '🍱 Вернуться к выбору основного блюда'),
     }
     markup = InlineKeyboardMarkup()
-    prev_button = InlineKeyboardButton("◀️ Пред. блюдо", callback_data=f"prev:{current_index}")
+    prev_button = InlineKeyboardButton("◀️ Пред.блюдо", callback_data=f"prev:{current_index}")
     next_button = InlineKeyboardButton("След.блюдо ▶️", callback_data=f"next:{current_index}")
     add_to_order_button = InlineKeyboardButton('🍴 Добавить в заказ', callback_data=f'order_{current_index}')
     main_menu_button = InlineKeyboardButton(
@@ -187,7 +187,7 @@ async def order_custom_paginate(tg_id, dish_type, current_index, results) -> Inl
     markup.row(main_menu_button)
     markup.row(InlineKeyboardButton('◀️ Главное меню', callback_data='main_menu_custom'))
     if basket_sum > 0:
-        markup.row(InlineKeyboardButton(f"🧺 Моя корзина ({basket_sum} ₽)", callback_data="моя корзина"))
+        markup.row(InlineKeyboardButton(f"🧺 Моя корзина ({basket_sum} ₽)", callback_data="Моя корзина"))
     return markup
 
 
@@ -214,3 +214,30 @@ async def weekdays() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(f"️↩️ {back}", callback_data='back_order_complex')]
     ])
     return kb
+
+
+async def basket_menu() -> InlineKeyboardMarkup:
+    change_data, add_drink, add_bakery, send_to_delivery, back = "Изменить данные", "Добавить напиток", \
+        "Добавить выпечку", "Отправить заказ", "Назад"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(f"️🔀 {change_data}", callback_data='change_basket')],
+        [InlineKeyboardButton(f"️🍹 {add_drink}", callback_data='add_drink')],
+        [InlineKeyboardButton(f"️🥐 {add_bakery}", callback_data='add_bakery')],
+        [InlineKeyboardButton(f"️🚚 {send_to_delivery}", callback_data='send_to_delivery')],
+        [InlineKeyboardButton(f"️↩️ {back}", callback_data='back_order_complex')]
+    ])
+    return kb
+
+
+async def drinks_menu_paginate(current_index, results) -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    prev_button = InlineKeyboardButton("◀️ Пред.напиток", callback_data=f"prev:{current_index}")
+    next_button = InlineKeyboardButton("След.напиток ▶️", callback_data=f"next:{current_index}")
+    if current_index == 0:
+        markup.row(next_button)
+    elif current_index == len(results) - 1:
+        markup.row(prev_button)
+    else:
+        markup.row(prev_button, next_button)
+    markup.row(InlineKeyboardButton('◀️ Главное меню', callback_data='main_menu_drinks'))
+    return markup

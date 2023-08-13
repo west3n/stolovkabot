@@ -86,9 +86,8 @@ async def update_basket(weekday, tg_id, order, price):
 async def get_basket(tg_id):
     db, cur = connect()
     try:
-        now = datetime.datetime.now().date()
-        cur.execute("SELECT \"order\" FROM dishes_basket WHERE date=%s AND customer_id=%s", (now, tg_id,))
-        result = cur.fetchone()
+        cur.execute("SELECT day, \"order\", price FROM dishes_basket WHERE customer_id=%s", (tg_id,))
+        result = cur.fetchall()
         return result
     finally:
         db.close()
@@ -101,6 +100,33 @@ async def get_basket_sum(tg_id):
         cur.execute("SELECT SUM(price) FROM dishes_basket WHERE customer_id=%s", (tg_id,))
         result = cur.fetchone()
         return int(result[0]) if result[0] else 0
+    finally:
+        db.close()
+        cur.close()
+
+
+async def get_drinks():
+    db, cur = connect()
+    try:
+        drink_1, drink_2 = 'Морс ягодный', 'Компот из сухофруктов'
+        cur.execute("SELECT * FROM dishes_drink WHERE name = %s LIMIT 1", (drink_1,))
+        result_1 = cur.fetchall()
+        cur.execute("SELECT * FROM dishes_drink WHERE name = %s LIMIT 1", (drink_2,))
+        result_2 = cur.fetchall()
+        total_list = result_1 + result_2
+        return total_list
+    finally:
+        db.close()
+        cur.close()
+
+
+async def get_drink_volumes():
+    db, cur = connect()
+    try:
+        cur.execute("SELECT volume, price FROM dishes_drink WHERE name = %s ORDER BY price", ('Морс ягодный',))
+        volumes = cur.fetchall()
+        volume = [f'{volume}л. - {int(price)} ₽' for volume, price in volumes]
+        return '\n'.join(volume)
     finally:
         db.close()
         cur.close()

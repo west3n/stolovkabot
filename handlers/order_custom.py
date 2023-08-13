@@ -56,7 +56,7 @@ async def custom_order_handler_paginate(call: types.CallbackQuery, state: FSMCon
         elif call.data.startswith('donecount'):
             dish_data = await db_order_custom.get_dish_info(data.get('dish_type'), data.get('dish_id'))
             count = data.get('count') if data.get('count') else 1
-            await db_basket.insert_basket(weekday, call.from_user.id, f"{dish_data[1]} - {data.get('count')}",
+            await db_basket.insert_basket(weekday, call.from_user.id, f"{dish_data[1]} - {data.get('count')} шт.",
                                           (count * dish_data[9]))
             await call.answer(text=f"🧺 Вы добавили в корзину:"
                                    f"\n\n{dish_data[1]}"

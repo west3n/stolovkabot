@@ -5,6 +5,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.utils.exceptions import MessageToDeleteNotFound, MessageIdentifierNotSpecified
 
+import handlers.basket
 from database import db_order_complex, db_basket
 from keyboards import inline
 from handlers import main_menu
@@ -65,15 +66,17 @@ async def one_day_complex_paginate(call: types.CallbackQuery, state: FSMContext)
             total_price = round((count * price), 2)
             weekday = data.get('weekday') if data.get('weekday') else weekdays.get(datetime.datetime.now().weekday())
             await db_basket.insert_basket(
-                    weekday, call.from_user.id, f"{lunch_name} {data.get('lunch_type')} - {count}", total_price)
+                    weekday, call.from_user.id, f"{lunch_name} ({data.get('lunch_type')}) - {count} шт.", total_price)
             await call.answer(text=f"🧺 Вы добавили в корзину:"
                                    f"\n\nКомплексный обед {lunch_name} ({data.get('lunch_type')})"
                                    f"\nКоличество порций: {count}"
                                    f"\n\n Общая цена: {total_price}₽",
                               show_alert=True)
             await call.message.edit_reply_markup(
-                reply_markup=await inline.one_day_complex_paginate(data.get('weekday'), call.from_user.id, data.get('results'),
-                                                                   data.get('current_index')))
+                reply_markup=await inline.one_day_complex_paginate(
+                    data.get('weekday'), call.from_user.id, data.get('results'), data.get('current_index')))
+        elif call.data == 'Моя корзина':
+            await handlers.basket.handle_basket(call, state)
         elif call.data == 'backcount':
             await call.message.edit_reply_markup(
                 reply_markup=await inline.order_complex_choice_price(data.get('lunch_id')))
@@ -112,8 +115,8 @@ async def one_day_complex_paginate(call: types.CallbackQuery, state: FSMContext)
             await call.message.edit_reply_markup(reply_markup=await inline.complex_count(count))
         elif call.data == 'back_price':
             await call.message.edit_reply_markup(
-                reply_markup=await inline.one_day_complex_paginate(data.get('weekday'), call.from_user.id, data.get('results'),
-                                                                   data.get('current_index')))
+                reply_markup=await inline.one_day_complex_paginate(
+                    data.get('weekday'), call.from_user.id, data.get('results'), data.get('current_index')))
         elif call.data.startswith('order_'):
             await call.message.edit_reply_markup(
                 reply_markup=await inline.order_complex_choice_price(data.get('lunch_id')))
@@ -191,7 +194,8 @@ async def one_day_complex_paginate(call: types.CallbackQuery, state: FSMContext)
                         f'\n<b>Жиры:</b> <em>{result[14]} г</em>' \
                         f'\n<b>Углеводы:</b> <em>{result[15]} г</em>'
                 cap = await call.message.answer(
-                    text, reply_markup=await inline.one_day_complex_paginate(data.get('weekday'), call.from_user.id, results, current_index))
+                    text, reply_markup=await inline.one_day_complex_paginate(
+                        data.get('weekday'), call.from_user.id, results, current_index))
                 await OneDayComplex.complex_id.set()
                 data['media_group'] = media_group
                 data['cap'] = cap
@@ -206,4 +210,3 @@ def register(dp: Dispatcher):
     dp.register_callback_query_handler(order_complex_handler, text='Заказать комплексный обед')
     dp.register_callback_query_handler(one_day_complex_paginate, lambda c: c.data in days + ['Заказать на сегодня'])
     dp.register_callback_query_handler(one_day_complex_paginate, state=OneDayComplex.complex_id)
-
