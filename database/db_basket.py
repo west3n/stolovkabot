@@ -1,7 +1,5 @@
 import asyncio
 import datetime
-import re
-from collections import defaultdict
 
 from database.db_connection import connect
 
@@ -83,6 +81,22 @@ async def update_basket(weekday, tg_id, order, price):
         cur.close()
 
 
+async def update_basket_drink(tg_id, weekday, data, price):
+    db, cur = connect()
+    try:
+        if weekday:
+            cur.execute("UPDATE dishes_basket SET \"order\" = \"order\" || %s, price = price + %s "
+                        "WHERE customer_id = %s AND day = %s", (data, price, tg_id, weekday,))
+            db.commit()
+        else:
+            cur.execute("UPDATE dishes_basket SET \"order\" = \"order\" || %s, price = price + %s "
+                        "WHERE customer_id = %s", (data, price, tg_id,))
+            db.commit()
+    finally:
+        db.close()
+        cur.close()
+
+
 async def get_basket(tg_id):
     db, cur = connect()
     try:
@@ -130,3 +144,129 @@ async def get_drink_volumes():
     finally:
         db.close()
         cur.close()
+
+
+async def get_drink_data(drink_id):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT * FROM dishes_drink WHERE id = %s", (drink_id,))
+        return cur.fetchone()
+    finally:
+        db.close()
+        cur.close()
+
+
+async def get_drink_price(name, volume):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT price FROM dishes_drink WHERE name = %s AND volume = %s", (name, volume,))
+        return cur.fetchone()
+    finally:
+        db.close()
+        cur.close()
+
+
+async def get_weekday_bake(weekday):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT * FROM dishes_bakery WHERE weekday = %s", (weekday,))
+        return cur.fetchall()
+    finally:
+        db.close()
+        cur.close()
+
+
+async def get_bakery_data(drink_id):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT * FROM dishes_bakery WHERE id = %s", (drink_id,))
+        return cur.fetchone()
+    finally:
+        db.close()
+        cur.close()
+
+
+async def update_basket_bakery(data, price, tg_id, weekday):
+    db, cur = connect()
+    try:
+        cur.execute("UPDATE dishes_basket SET \"order\" = \"order\" || %s, price = price + %s "
+                    "WHERE customer_id = %s AND day = %s", (data, price, tg_id, weekday,))
+        db.commit()
+    finally:
+        db.close()
+        cur.close()
+
+
+async def get_full_basket(tg_id):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT * FROM dishes_basket WHERE customer_id=%s", (tg_id,))
+        rows = cur.fetchall()
+        items = {}
+        data = []
+        for row in rows:
+            text = row[3]
+            for line in text.split('\n'):
+                parts = line.split(' : ')
+                if len(parts) == 2:
+                    item_description, quantity = parts[0], parts[1]
+                    quantity_parts = quantity.split(' ')
+                    if len(quantity_parts) == 2:
+                        item_quantity = int(quantity_parts[0])
+                        item_name = item_description
+                        if item_name in items:
+                            items[item_name] += item_quantity
+                        else:
+                            items[item_name] = item_quantity
+            result_text = '\n'.join([f'{item} - {quantity} шт.' for item, quantity in items.items()])
+            data.append([row[2], result_text, row[4]])
+        return data
+    finally:
+        db.close()
+        cur.close()
+
+
+async def delete_basket(tg_id):
+    db, cur = connect()
+    try:
+        cur.execute("DELETE FROM dishes_basket WHERE customer_id = %s", (tg_id,))
+        db.commit()
+    finally:
+        db.close()
+        cur.close()
+
+
+async def get_basket_by_day(weekday, tg_id):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT * FROM dishes_basket WHERE customer_id=%s AND day = %s", (tg_id, weekday))
+        return cur.fetchone()
+    finally:
+        db.close()
+        cur.close()
+
+
+async def delete_basket_by_day(weekday, tg_id):
+    db, cur = connect()
+    try:
+        cur.execute("DELETE FROM dishes_basket WHERE customer_id=%s AND day = %s", (tg_id, weekday))
+        db.commit()
+    finally:
+        db.close()
+        cur.close()
+
+
+async def search_name(dish):
+    db, cur = connect()
+    try:
+        table_names = ['dishes_bakery', 'dishes_salad', 'dishes_soup', 'dishes_garnish', 'dishes_maindish']
+        for table_name in table_names:
+            cur.execute(f"SELECT name FROM {table_name} WHERE name ILIKE '%{dish}%'")
+            result = cur.fetchone()
+            if result:
+                return result[0]
+    finally:
+        db.close()
+        cur.close()
+
+asyncio.run(search_name('биточки'))

@@ -48,8 +48,7 @@ async def handle_manydays(call: types.CallbackQuery, state: FSMContext):
         except (MessageToDeleteNotFound, MessageIdentifierNotSpecified, TypeError, AttributeError):
             pass
         try:
-            message_id = data.get('cap')
-            await call.bot.delete_message(call.message.chat.id, int(message_id.message_id))
+            await call.bot.delete_message(call.message.chat.id, data.get('cap'))
         except (MessageToDeleteNotFound, MessageIdentifierNotSpecified, TypeError, AttributeError):
             pass
     await state.finish()
@@ -66,7 +65,7 @@ async def one_day_complex_paginate(call: types.CallbackQuery, state: FSMContext)
             total_price = round((count * price), 2)
             weekday = data.get('weekday') if data.get('weekday') else weekdays.get(datetime.datetime.now().weekday())
             await db_basket.insert_basket(
-                    weekday, call.from_user.id, f"{lunch_name} ({data.get('lunch_type')}) - {count} шт.", total_price)
+                    weekday, call.from_user.id, f"{lunch_name} ({data.get('lunch_type')}) : {count} шт.", total_price)
             await call.answer(text=f"🧺 Вы добавили в корзину:"
                                    f"\n\nКомплексный обед {lunch_name} ({data.get('lunch_type')})"
                                    f"\nКоличество порций: {count}"
@@ -140,8 +139,7 @@ async def one_day_complex_paginate(call: types.CallbackQuery, state: FSMContext)
                     except MessageToDeleteNotFound:
                         pass
                 try:
-                    message_id = data.get('cap')
-                    await call.bot.delete_message(call.message.chat.id, int(message_id.message_id))
+                    await call.bot.delete_message(call.message.chat.id, data.get('cap'))
                 except MessageToDeleteNotFound:
                     pass
             except TypeError:
@@ -198,7 +196,7 @@ async def one_day_complex_paginate(call: types.CallbackQuery, state: FSMContext)
                         data.get('weekday'), call.from_user.id, results, current_index))
                 await OneDayComplex.complex_id.set()
                 data['media_group'] = media_group
-                data['cap'] = cap
+                data['cap'] = cap.message_id
                 data['lunch_id'] = result[17]
                 data['current_index'] = current_index
                 data['results'] = results

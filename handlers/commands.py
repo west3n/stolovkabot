@@ -12,12 +12,19 @@ async def get_id(msg: types.Message):
 
 
 async def bot_start(msg: types.Message, state: FSMContext):
-    customer = await db_customer.get_customer(msg.from_id)
-    if customer:
-        await main_menu.main_menu_msg(msg)
+    if msg.chat.type == "private":
+        await state.finish()
+        customer = await db_customer.get_customer(msg.from_id)
+        if customer:
+            await main_menu.main_menu_msg(msg)
+        else:
+            await individuals.start_registration(msg, msg.get_args(), state) if msg.get_args() \
+                else await individuals.start_registration(msg, None, state)
     else:
-        await individuals.start_registration(msg, msg.get_args(), state) if msg.get_args() \
-            else await individuals.start_registration(msg, None, state)
+        if msg.from_id in [254465569, 15362825]:
+            await msg.answer("Привет, создатель!")
+        else:
+            await msg.answer("Не хочу с тобой общаться!")
 
 
 def register(dp: Dispatcher):

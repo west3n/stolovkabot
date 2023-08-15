@@ -217,19 +217,20 @@ async def weekdays() -> InlineKeyboardMarkup:
 
 
 async def basket_menu() -> InlineKeyboardMarkup:
-    change_data, add_drink, add_bakery, send_to_delivery, back = "Изменить данные", "Добавить напиток", \
+    change_data, add_drink, add_bake, send_to_delivery, back = "Изменить данные", "Добавить напиток", \
         "Добавить выпечку", "Отправить заказ", "Назад"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(f"️🔀 {change_data}", callback_data='change_basket')],
         [InlineKeyboardButton(f"️🍹 {add_drink}", callback_data='add_drink')],
-        [InlineKeyboardButton(f"️🥐 {add_bakery}", callback_data='add_bakery')],
+        [InlineKeyboardButton(f"️🥐 {add_bake}", callback_data='add_bake')],
         [InlineKeyboardButton(f"️🚚 {send_to_delivery}", callback_data='send_to_delivery')],
         [InlineKeyboardButton(f"️↩️ {back}", callback_data='back_order_complex')]
     ])
     return kb
 
 
-async def drinks_menu_paginate(current_index, results) -> InlineKeyboardMarkup:
+async def drinks_menu_paginate(current_index, results, tg_id) -> InlineKeyboardMarkup:
+    basket_sum = await db_basket.get_basket_sum(tg_id)
     markup = InlineKeyboardMarkup()
     prev_button = InlineKeyboardButton("◀️ Пред.напиток", callback_data=f"prev:{current_index}")
     next_button = InlineKeyboardButton("След.напиток ▶️", callback_data=f"next:{current_index}")
@@ -239,5 +240,102 @@ async def drinks_menu_paginate(current_index, results) -> InlineKeyboardMarkup:
         markup.row(prev_button)
     else:
         markup.row(prev_button, next_button)
+    markup.row(InlineKeyboardButton('📏 Выбрать объем напитка', callback_data='drink_volume'))
+    markup.row(InlineKeyboardButton(f'🧺 Вернуться в корзину ({basket_sum} ₽)', callback_data="Моя корзина (напитки)"))
     markup.row(InlineKeyboardButton('◀️ Главное меню', callback_data='main_menu_drinks'))
+    return markup
+
+
+async def select_weekday(weekdays_list) -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    for weekday in weekdays_list:
+        markup.row(InlineKeyboardButton(f'📅 {weekday}', callback_data=f'day_{weekday}'))
+    markup.row(InlineKeyboardButton("📅 Добавить во все дни", callback_data=f'day_all_days'))
+    markup.row(InlineKeyboardButton("◀️ Назад", callback_data=f'weekdays_back'))
+    return markup
+
+
+async def drink_volumes(volumes) -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    buttons = []
+    for volume in volumes:
+        buttons.append(InlineKeyboardButton(f'{volume[0]}', callback_data=f'volume_{volume[0].replace("л.", "")}'))
+    markup.add(*buttons)
+    markup.row(InlineKeyboardButton("◀️ Назад", callback_data=f'volume_back'))
+    return markup
+
+
+async def select_weekday_bakery(weekdays_list) -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    for weekday in weekdays_list:
+        markup.row(InlineKeyboardButton(f'📅 {weekday}', callback_data=f'day_{weekday}'))
+    markup.row(InlineKeyboardButton("◀️ Назад", callback_data=f'weekdays_back'))
+    return markup
+
+
+async def bakery_menu_paginate(current_index, results, tg_id) -> InlineKeyboardMarkup:
+    basket_sum = await db_basket.get_basket_sum(tg_id)
+    markup = InlineKeyboardMarkup()
+    prev_button = InlineKeyboardButton("◀️ Пред.выпечка", callback_data=f"prev:{current_index}")
+    next_button = InlineKeyboardButton("След.выпечка ▶️", callback_data=f"next:{current_index}")
+    if current_index == 0:
+        markup.row(next_button)
+    elif current_index == len(results) - 1:
+        markup.row(prev_button)
+    else:
+        markup.row(prev_button, next_button)
+    markup.row(InlineKeyboardButton('🍴 Добавить в заказ', callback_data=f'order_{current_index}'))
+    markup.row(InlineKeyboardButton(f'🧺 Вернуться в корзину ({basket_sum} ₽)', callback_data="Моя корзина (выпечка)"))
+    markup.row(InlineKeyboardButton('◀️ Главное меню', callback_data='main_menu_bakery'))
+    return markup
+
+
+# async def change_basket_kb(dish, amount):
+#     markup = InlineKeyboardMarkup()
+#     for bask in basket:
+#         count_basket = bask[1].count('\n') + 1
+#         for y in range(0, count_basket):
+#             x = bask[1].split("\n")[y].split("-")[0]
+#             count = bask[1].split("\n")[y].split("-")[1]
+#             button = InlineKeyboardButton(f'{dish}...', callback_data=f'test')
+#             small = InlineKeyboardButton(f"◀️", callback_data=f"prevcount")
+#             count_button = InlineKeyboardButton(f"{count}", callback_data="test")
+#             big = InlineKeyboardButton(f"▶️", callback_data=f"nextcount")
+#             delete = InlineKeyboardButton(f"❌", callback_data=f"nextcount")
+#             markup.row(button)
+#             markup.row(small, count_button, big, delete)
+#     return markup
+
+
+async def select_weekday_basket(weekdays_list):
+    markup = InlineKeyboardMarkup()
+    for weekday in weekdays_list:
+        markup.row(InlineKeyboardButton(f'📅 {weekday}', callback_data=f'day_{weekday}'))
+    markup.row(InlineKeyboardButton("◀️ Назад", callback_data=f'Моя корзина'))
+    return markup
+
+
+async def change_basket_kb(weekday, tg_id):
+    markup = InlineKeyboardMarkup()
+    basket = await db_basket.get_basket_by_day(weekday, tg_id)
+    dishes = basket[3].split('\n')
+    x = 0
+    for dish in dishes:
+        dish_count = dish.split(" : ")[1]
+        markup.row(InlineKeyboardButton(dish, callback_data=f"{x}_{dish_count}_change"))
+        x += 1
+    markup.row(InlineKeyboardButton(f'❌ Удалить все пункты', callback_data=f'del_{weekday}'))
+    markup.row(InlineKeyboardButton("◀️ Назад", callback_data=f'change_basket'))
+    return markup
+
+
+async def change_dish_kb(count):
+    numbers = re.findall(r'\d+', count)
+    count = [int(number) for number in numbers][0]
+    markup = InlineKeyboardMarkup()
+    small = InlineKeyboardButton(f"◀️", callback_data=f"prevcount")
+    count_button = InlineKeyboardButton(f"{count}", callback_data="test")
+    big = InlineKeyboardButton(f"▶️", callback_data=f"nextcount")
+    delete = InlineKeyboardButton(f"❌", callback_data=f"nextcount")
+    markup.row(small, count_button, big, delete)
     return markup
