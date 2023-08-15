@@ -123,7 +123,7 @@ async def one_day_complex_paginate(call: types.CallbackQuery, state: FSMContext)
             for message in data.get('media_group'):
                 await call.bot.delete_message(call.message.chat.id, int(message.message_id))
             message_id = data.get('cap')
-            await call.bot.delete_message(call.message.chat.id, int(message_id.message_id))
+            await call.bot.delete_message(call.message.chat.id, message_id)
             await state.finish()
             await call.message.answer(
                 "Выберите один из вариантов:", reply_markup=await inline.main_menu(call.from_user.id))

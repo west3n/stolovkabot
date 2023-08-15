@@ -21,3 +21,4 @@ async def get_dish_info(dish_type, dish_id):
     finally:
         db.close()
         cur.close()
+

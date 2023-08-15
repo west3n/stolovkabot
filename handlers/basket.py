@@ -345,6 +345,48 @@ async def send_to_delivery(call: types.CallbackQuery):
     await call.message.answer("Выберите один из вариантов:", reply_markup=await inline.main_menu(call.from_user.id))
 
 
+async def change_basket(call: types.CallbackQuery, state: FSMContext):
+    async with state.proxy() as data:
+        await state.set_state(Changes.change.state)
+        basket = await db_basket.get_basket(call.from_user.id)
+        if call.data.endswith('_change'):
+            dish_index = call.data.split('_')[0]
+            amount = call.data.split('_')[1]
+            basket = await db_basket.get_basket_by_day(data.get('weekday'), call.from_user.id)
+            dish = basket[3].split('\n')[int(dish_index)].split(':')[0]
+            data['dish'] = dish
+            data['amount'] = amount
+            await call.message.edit_text(f"Выберите новое количество или удалите <b>{dish}:</b>", reply_markup=await inline.change_dish_kb(amount))
+        elif call.data.startswith('day_'):
+            weekday = call.data.split('_')[1]
+            data['weekday'] = weekday
+            await call.message.edit_text(
+                f"Вы выбрали {weekday}\nВыберите пункт, который хотите изменить:",
+                reply_markup=await inline.change_basket_kb(weekday, call.from_user.id))
+        elif call.data.startswith('del_'):
+            weekday = call.data.split('_')[1]
+            await db_basket.delete_basket_by_day(weekday, call.from_user.id)
+            basket = await db_basket.get_basket(call.from_user.id)
+            if basket:
+                await handle_basket(call, state)
+            else:
+                await state.finish()
+                await handlers.main_menu.main_menu_call(call)
+        else:
+            if len(basket) > 1:
+                weekday_buttons = []
+                for day in basket:
+                    weekday_buttons.append(day[0])
+                await call.message.edit_text(
+                    "Выберите день, в котором хотите изменить данные:",
+                    reply_markup=await inline.select_weekday_basket(weekday_buttons))
+            else:
+                weekday = basket[0][0]
+                data['weekday'] = weekday
+                await call.message.edit_text(
+                    f"Вы выбрали {weekday}\nВыберите пункт, который хотите изменить:",
+                    reply_markup=await inline.change_basket_kb(weekday, call.from_user.id))
+
 
 def register(dp: Dispatcher):
     dp.register_callback_query_handler(handle_basket, text='Моя корзина', state='*')
