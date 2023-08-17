@@ -1,5 +1,6 @@
 import datetime
 import psycopg2
+import handlers.basket
 
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
@@ -146,6 +147,7 @@ async def custom_order_handler_paginate(call: types.CallbackQuery, state: FSMCon
 
 
 def register(dp: Dispatcher):
+    dp.register_callback_query_handler(handlers.basket.handle_basket, text='Моя корзина', state='*')
     dp.register_callback_query_handler(
         custom_order_handler_paginate, lambda c: c.data.startswith("Соcтавить обед самостоятельно"))
     dp.register_callback_query_handler(custom_order_handler_paginate, state=OrderCustom.salad)

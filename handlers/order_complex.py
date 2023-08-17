@@ -203,6 +203,7 @@ async def one_day_complex_paginate(call: types.CallbackQuery, state: FSMContext)
 
 
 def register(dp: Dispatcher):
+    dp.register_callback_query_handler(handlers.basket.handle_basket, text='Моя корзина', state='*')
     dp.register_callback_query_handler(handle_manydays, text='Заказать на несколько дней', state="*")
     dp.register_callback_query_handler(back_button, text='back_order_complex')
     dp.register_callback_query_handler(order_complex_handler, text='Заказать комплексный обед')

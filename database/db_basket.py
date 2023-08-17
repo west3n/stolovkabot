@@ -32,7 +32,18 @@ async def insert_basket(weekday, tg_id, order, price):
         row = cur.fetchone()
         if row:
             day, old_order = row
-            new_order = old_order + f"\n{order}"
+            old_order_list = old_order.split("\n")
+            old_order_names_list = [old_order_name.split(":")[0] for old_order_name in old_order_list]
+            if order.split(":")[0] in old_order_names_list:
+                for order_ in old_order_list:
+                    if order.split(":")[0] == order_.split(":")[0]:
+                        new_amount = int(order.split(":")[1].split(" ")[1]) + int(order_.split(":")[1].split(" ")[1])
+                        new_order = f'{order_.split(":")[0]}: {new_amount} шт.'
+                        old_order = old_order.replace(order_, new_order)
+                    else:
+                        pass
+            else:
+                old_order += f'\n{order}'
             if day == f"{day_of_week} ({nearest_date.strftime('%d.%m')})":
                 cur.execute(f"UPDATE dishes_basket SET \"order\" = %s, price = price + %s "
                             f"WHERE customer_id = %s AND date = %s AND day = %s",
