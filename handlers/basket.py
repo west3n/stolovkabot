@@ -321,6 +321,14 @@ async def send_to_delivery(call: types.CallbackQuery):
                       '🎊 Заказ успешно отправлен! Ожидайте подтверждения от администратора! \n\n'
                       'Вы можете посмотреть заказ в разделе "Мои профиль" -> "Мои заказы"',
                       show_alert=True)
+    formatted_text = '\n\n'.join([f"<b>{day}:</b>\n{meals}\n<b>Цена:</b>"
+                                  f"<em> {price:.1f}₽</em>" for day, meals, price in order_data])
+    await call.bot.send_message(
+        decouple.config("GROUP_ID"),
+        f"<b>Пользователь {'@' + call.from_user.username if call.from_user.username else user_data[2]} создал заказ!</b>"
+        f"\n\n<em>Компания: {user_data[2]}</em>"
+        f"\n\n<b>Заказ:</b>\n{formatted_text}"
+        f"\n\n<b>Адрес доставки</b>: {user_data[3]}")
     await call.message.answer("Выберите один из вариантов:", reply_markup=await inline.main_menu(call.from_user.id))
 
 
@@ -343,8 +351,8 @@ async def change_basket(call: types.CallbackQuery, state: FSMContext):
                               show_alert=True)
             if basket:
                 await call.message.edit_text(
-                    f"Вы выбрали {weekday}\nВыберите пункт, который хотите изменить:",
-                    reply_markup=await inline.change_basket_kb(weekday, call.from_user.id))
+                    f"Вы выбрали {data.get('weekday')}\nВыберите пункт, который хотите изменить:",
+                    reply_markup=await inline.change_basket_kb(data.get('weekday'), call.from_user.id))
             else:
                 await state.finish()
                 await handlers.main_menu.main_menu_call(call)

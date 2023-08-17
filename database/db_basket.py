@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import re
 
 from database.db_connection import connect
 
@@ -78,8 +79,24 @@ async def update_basket_drink(tg_id, weekday, data, price):
     db, cur = connect()
     try:
         if weekday:
-            cur.execute("UPDATE dishes_basket SET \"order\" = \"order\" || %s, price = price + %s "
-                        "WHERE customer_id = %s AND day = %s", (data, price, tg_id, weekday,))
+            cur.execute("SELECT \"order\" FROM dishes_basket WHERE customer_id = %s AND day = %s", (tg_id, weekday,))
+        else:
+            cur.execute("SELECT \"order\" FROM dishes_basket WHERE customer_id = %s", (tg_id,))
+        old_order = cur.fetchone()
+        old_order = old_order[0]
+        old_order_list = old_order.split("\n")
+        old_order_names_list = [old_order_name.split(":")[0] for old_order_name in old_order_list]
+        if data.split(":")[0] in old_order_names_list:
+            for order_ in old_order_list:
+                if data.split(":")[0] == order_.split(":")[0]:
+                    new_amount = int(data.split(":")[1].split(" ")[1]) + int(order_.split(":")[1].split(" ")[1])
+                    new_order = f'{order_.split(":")[0]}: {new_amount} шт.'
+                    old_order = old_order.replace(order_, new_order)
+        else:
+            old_order += f'\n{data}'
+        if weekday:
+            cur.execute("UPDATE dishes_basket SET \"order\" = %s, price = price + %s "
+                        "WHERE customer_id = %s AND day = %s", (old_order, price, tg_id, weekday,))
             db.commit()
         else:
             cur.execute("UPDATE dishes_basket SET \"order\" = %s, price = price + %s "

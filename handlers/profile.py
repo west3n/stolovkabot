@@ -180,7 +180,8 @@ async def handle_my_orders(call: types.CallbackQuery, state: FSMContext):
 
 
 def register(dp: Dispatcher):
-    dp.register_callback_query_handler(handle_profile, text="Мой профиль")
+    dp.register_callback_query_handler(handle_profile, text="Мой профиль", state="*")
+    dp.register_callback_query_handler(handle_my_orders, text='Мои заказы', state="*")
     dp.register_callback_query_handler(back_button, text="Главное меню")
     dp.register_callback_query_handler(change_phone, text="Изменить номер телефона")
     dp.register_message_handler(change_phone_finish, content_types=['text', 'contact'], state=ChangePhone.phone)
