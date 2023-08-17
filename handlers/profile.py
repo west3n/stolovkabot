@@ -18,7 +18,12 @@ class ChangeAddress(StatesGroup):
     address = State()
 
 
-async def handle_profile(call: types.CallbackQuery):
+class Orders(StatesGroup):
+    order = State()
+
+
+async def handle_profile(call: types.CallbackQuery, state: FSMContext):
+    await state.finish()
     user = await db_customer.get_customer(call.from_user.id)
     text = f"<b> 🪪 Ваш профиль</b>" \
            f"\n\n<b>Имя</b>: {user[2]}"
@@ -144,6 +149,36 @@ async def change_address_finish(msg: types.Message, state: FSMContext):
     await state.finish()
 
 
+async def handle_my_orders(call: types.CallbackQuery, state: FSMContext):
+    await state.set_state(Orders.order.state)
+    orders = await db_customer.get_orders(call.from_user.id)
+    if orders:
+        current_index = 0
+        result = orders[current_index]
+        # [0]: ID заказа, [1]: Адрес, [2]: Подтверждение, [3]: Компания, [4]: Telegram ID заказчика,
+        # [5]: Сумма заказа, [6]: Дата оформления (datetime), [7]: Текст заказа
+        if call.data.startswith('prev') or call.data.startswith('next'):
+            callback_data = call.data.split(":")
+            current_index = int(callback_data[1])
+            action = callback_data[0]
+            if action == "next":
+                if current_index + 1 < len(orders):
+                    current_index += 1
+            elif action == "prev":
+                if current_index > 0:
+                    current_index -= 1
+            result = orders[current_index]
+        text = f'🚚 <b>Заказ {current_index + 1} из {len(orders)}:</b>' \
+               f"\n\n<b>🆔 ID заказа:</b> {result[0]}" \
+               f"\n<b>💸 Сумма заказа:</b> {int(result[5])} ₽" \
+               f"\n<b>📅 Дата заказа:</b> {result[6].strftime('%d.%m.%Y')}" \
+               f"\n\n<b>🍱 Состав заказа:</b>\n{result[7]}"
+        await call.message.edit_text(
+            text, reply_markup=await inline.orders_paginate(orders, current_index))
+    else:
+        await call.message.edit_text("На данный момент у вас не было заказов!")
+
+
 def register(dp: Dispatcher):
     dp.register_callback_query_handler(handle_profile, text="Мой профиль")
     dp.register_callback_query_handler(back_button, text="Главное меню")
@@ -151,3 +186,4 @@ def register(dp: Dispatcher):
     dp.register_message_handler(change_phone_finish, content_types=['text', 'contact'], state=ChangePhone.phone)
     dp.register_callback_query_handler(change_address, text="Изменить адрес доставки")
     dp.register_message_handler(change_address_finish, state=ChangeAddress.address)
+    dp.register_callback_query_handler(handle_my_orders, state=Orders.order)

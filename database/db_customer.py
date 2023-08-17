@@ -42,3 +42,13 @@ async def update_address(tg_id, address):
     finally:
         cur.close()
         db.close()
+
+
+async def get_orders(tg_id):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT * FROM orders_order WHERE customer_id = %s", (tg_id,))
+        return cur.fetchall()
+    finally:
+        cur.close()
+        db.close()

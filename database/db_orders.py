@@ -11,7 +11,6 @@ async def add_new_order(tg_id):
         order_data = await db_basket.get_full_basket(tg_id)
         now = datetime.datetime.now().date()
         for data in order_data:
-            print(data)
             order_text = f'{data[0]} - {data[1]}'
             cur.execute('INSERT INTO orders_order (address, approve, company_id, customer_id, '
                         'amount, order_date, order_text) VALUES (%s, %s, %s, %s, %s, %s, %s)',

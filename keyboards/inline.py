@@ -327,3 +327,19 @@ async def change_dish_kb(count):
     markup.row(InlineKeyboardButton(f"Подтвердить", callback_data=f'donecount:{count}'))
     markup.row(InlineKeyboardButton(f'↩️ Назад', callback_data='backcount'))
     return markup
+
+
+async def orders_paginate(results, current_index) -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    if current_index == 0:
+        markup.row(InlineKeyboardButton("След.заказ ▶️", callback_data=f"next:{current_index}"))
+    elif current_index == len(results) - 1:
+        markup.row(InlineKeyboardButton("◀️ Пред. заказ", callback_data=f"prev:{current_index}"))
+    else:
+        markup.row(
+            InlineKeyboardButton("◀️ Пред.заказ", callback_data=f"prev:{current_index}"),
+            InlineKeyboardButton("След.заказ ▶️", callback_data=f"next:{current_index}")
+        )
+    markup.row(InlineKeyboardButton('🔽 Вернуться в профиль', callback_data='Мой профиль'))
+    markup.add()
+    return markup

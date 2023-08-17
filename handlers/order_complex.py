@@ -10,7 +10,7 @@ from database import db_order_complex, db_basket
 from keyboards import inline
 from handlers import main_menu
 
-days = ['mon', 'tue', 'wed', 'tue', 'fri', 'sat', 'sun']
+days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 weekdays = {i: day for i, day in enumerate(days)}
 lunches = {
     'diet': 'Диетический',

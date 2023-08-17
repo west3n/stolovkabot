@@ -1,5 +1,6 @@
 import datetime
 
+import decouple
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
@@ -91,7 +92,7 @@ async def add_drink(call: types.CallbackQuery, state: FSMContext):
             weekday = None if data.get('weekday') in [None, 'all'] else data.get('weekday')
             await db_basket.update_basket_drink(
                 call.from_user.id, weekday,
-                f"\n{drink_data[1]} {data.get('volume')} л. : {count} шт.", count * int(drink_price[0]))
+                f"{drink_data[1]} {data.get('volume')} л. : {count} шт.", count * int(drink_price[0]))
             await call.answer(text=f"🧺 Вы добавили в корзину:"
                                    f"\n\n{drink_data[1]} {data.get('volume')}л."
                                    f"\nКоличество: {count}"
@@ -218,7 +219,7 @@ async def add_bake(call: types.CallbackQuery, state: FSMContext):
         elif call.data.startswith('donecount'):
             bakery_data = await db_basket.get_bakery_data(data.get('bakery_id'))
             count = data.get('count') if data.get('count') else 1
-            await db_basket.update_basket_bakery(f"\n{bakery_data[1]} : {count} шт.",
+            await db_basket.update_basket_bakery(f"{bakery_data[1]} : {count} шт.",
                                                  (count * bakery_data[9]), call.from_user.id, data.get('weekday'))
             await call.answer(text=f"🧺 Вы добавили в корзину:"
                                    f"\n\n{bakery_data[1]}"
@@ -327,10 +328,17 @@ async def change_basket(call: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
         await state.set_state(Changes.change.state)
         basket = await db_basket.get_basket(call.from_user.id)
-        if call.data == 'deletecount':
+        if call.data.startswith('donecount:'):
+            await db_basket.change_dish_in_basket(
+                call.from_user.id, data.get('weekday'), call.data.split(":")[1], data.get('dish'))
+            await call.answer(f"Количество {data.get('dish').split(':')[0]} успешно обновлено!",
+                              show_alert=True)
+            await call.message.edit_text(
+                f"Вы выбрали {data.get('weekday')}\nВыберите пункт, который хотите изменить:",
+                reply_markup=await inline.change_basket_kb(data.get('weekday'), call.from_user.id))
+        elif call.data == 'deletecount':
             await db_basket.delete_dish_from_basket(data.get('dish'), data.get('weekday'), call.from_user.id)
-            weekday = data.get('weekday')
-            basket = await db_basket.get_basket_by_day(weekday, call.from_user.id)
+            basket = await db_basket.get_basket_by_day(data.get('weekday'), call.from_user.id)
             await call.answer(f"{data.get('dish')} удалено из корзины!",
                               show_alert=True)
             if basket:

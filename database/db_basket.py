@@ -4,6 +4,16 @@ import datetime
 from database.db_connection import connect
 
 
+def extract_name_and_volume(dish_name):
+    name_match = re.match(r'(.+?)\s+(\d+(\.\d+)?)\s*л\.', dish_name)
+    if name_match:
+        name = name_match.group(1)
+        volume = float(name_match.group(2))
+        return name, volume
+    else:
+        return None, None
+
+
 def get_nearest_weekday(target_weekday):
     days_of_week = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
     current_day = datetime.datetime.now().weekday()
@@ -64,34 +74,6 @@ async def insert_basket(weekday, tg_id, order, price):
         cur.close()
 
 
-async def update_basket(weekday, tg_id, order, price):
-    days_of_week_ru_full = {
-        'mon': 'Понедельник',
-        'tue': 'Вторник',
-        'wed': 'Среда',
-        'thu': 'Четверг',
-        'fri': 'Пятница',
-        'sat': 'Суббота',
-        'sun': 'Воскресенье'
-    }
-    db, cur = connect()
-    try:
-        now = datetime.datetime.now().date()
-        if weekday:
-            nearest_date = get_nearest_weekday(weekday)
-            day_of_week = days_of_week_ru_full[weekday]
-            order = f"{day_of_week} ({nearest_date.strftime('%d.%m')}):\n{order}"
-        cur.execute("SELECT \"order\" FROM dishes_basket WHERE date=%s AND customer_id=%s", (now, tg_id,))
-        existing_order = cur.fetchone()
-        new_order = f"{existing_order[0]}\n{order}" if existing_order else ''
-        cur.execute("UPDATE dishes_basket SET \"order\" = %s, price = price + %s "
-                    "WHERE customer_id=%s", (new_order, price, tg_id,))
-        db.commit()
-    finally:
-        db.close()
-        cur.close()
-
-
 async def update_basket_drink(tg_id, weekday, data, price):
     db, cur = connect()
     try:
@@ -100,9 +82,33 @@ async def update_basket_drink(tg_id, weekday, data, price):
                         "WHERE customer_id = %s AND day = %s", (data, price, tg_id, weekday,))
             db.commit()
         else:
-            cur.execute("UPDATE dishes_basket SET \"order\" = \"order\" || %s, price = price + %s "
-                        "WHERE customer_id = %s", (data, price, tg_id,))
+            cur.execute("UPDATE dishes_basket SET \"order\" = %s, price = price + %s "
+                        "WHERE customer_id = %s", (old_order, price, tg_id,))
             db.commit()
+    finally:
+        db.close()
+        cur.close()
+
+
+async def update_basket_bakery(data, price, tg_id, weekday):
+    db, cur = connect()
+    try:
+        cur.execute("SELECT \"order\" FROM dishes_basket WHERE customer_id = %s AND day = %s", (tg_id, weekday,))
+        old_order = cur.fetchone()
+        old_order = old_order[0]
+        old_order_list = old_order.split("\n")
+        old_order_names_list = [old_order_name.split(":")[0] for old_order_name in old_order_list]
+        if data.split(":")[0] in old_order_names_list:
+            for order_ in old_order_list:
+                if data.split(":")[0] == order_.split(":")[0]:
+                    new_amount = int(data.split(":")[1].split(" ")[1]) + int(order_.split(":")[1].split(" ")[1])
+                    new_order = f'{order_.split(":")[0]}: {new_amount} шт.'
+                    old_order = old_order.replace(order_, new_order)
+        else:
+            old_order += f'\n{data}'
+        cur.execute("UPDATE dishes_basket SET \"order\" = %s, price = price + %s "
+                    "WHERE customer_id = %s AND day = %s", (old_order, price, tg_id, weekday,))
+        db.commit()
     finally:
         db.close()
         cur.close()
@@ -197,17 +203,6 @@ async def get_bakery_data(drink_id):
         cur.close()
 
 
-async def update_basket_bakery(data, price, tg_id, weekday):
-    db, cur = connect()
-    try:
-        cur.execute("UPDATE dishes_basket SET \"order\" = \"order\" || %s, price = price + %s "
-                    "WHERE customer_id = %s AND day = %s", (data, price, tg_id, weekday,))
-        db.commit()
-    finally:
-        db.close()
-        cur.close()
-
-
 async def get_full_basket(tg_id):
     db, cur = connect()
     try:
@@ -296,18 +291,24 @@ async def delete_dish_from_basket(dish_del, weekday, tg_id):
             dish_del_name = dish_del.split(":")[0]
             dish_del_amount = int(dish_del.split(":")[1].split(" ")[1])
             table_names = ['dishes_bakery', 'dishes_salad', 'dishes_soup',
-                           'dishes_garnish', 'dishes_maindish', 'dishes_drink']
+                           'dishes_garnish', 'dishes_maindish']
             price = 0
             for table_name in table_names:
                 cur.execute(f"SELECT price FROM {table_name} WHERE name = %s", (dish_del_name[:-1],))
                 result = cur.fetchone()
                 if result:
                     price = result[0]
-            if price == 0:
-                if dish_del_name.split('(')[1] == 'Полный обед)':
-                    price = 280
+            if price == 0 or price is None:
+                if dish_del_name[:-1].endswith('л.'):
+                    name, volume = extract_name_and_volume(dish_del_name[:-1])
+                    cur.execute(f'SELECT price FROM dishes_drink WHERE name = %s AND volume = %s', (name, volume,))
+                    result = cur.fetchone()
+                    price = result[0]
                 else:
-                    price = 260
+                    if dish_del_name.split('(')[1] == 'Полный обед)':
+                        price = 280
+                    else:
+                        price = 260
             total_price = price * dish_del_amount
             new_price = old_price - total_price
             cur.execute("UPDATE dishes_basket SET \"order\" = %s, price = %s WHERE day = %s AND customer_id = %s",
@@ -315,6 +316,54 @@ async def delete_dish_from_basket(dish_del, weekday, tg_id):
             db.commit()
         else:
             await delete_basket_by_day(weekday, tg_id)
+    finally:
+        db.close()
+        cur.close()
+
+
+async def change_dish_in_basket(tg_id, weekday, amount, dish):
+    db, cur = connect()
+    try:
+        basket_data = await get_basket_by_day(weekday, tg_id)
+        old_order = basket_data[3]
+        old_price = basket_data[4]
+        old_order_list = old_order.split("\n")
+        for old_dish in old_order_list:
+            if old_dish == dish:
+                old_amount = old_dish.split(':')[1].split(" ")[1]
+                new_dish = old_dish.replace(old_amount, amount)
+                dish_name = old_dish.split(":")[0]
+                table_names = ['dishes_bakery', 'dishes_salad', 'dishes_soup',
+                               'dishes_garnish', 'dishes_maindish']
+                price = 0
+                for table_name in table_names:
+                    cur.execute(f"SELECT price FROM {table_name} WHERE name = %s", (dish_name[:-1],))
+                    result = cur.fetchone()
+                    if result:
+                        price = result[0]
+                if price == 0 or price is None:
+                    if dish_name[:-1].endswith('л.'):
+                        name, volume = extract_name_and_volume(dish_name[:-1])
+                        cur.execute(f'SELECT price FROM dishes_drink WHERE name = %s AND volume = %s', (name, volume,))
+                        result = cur.fetchone()
+                        price = result[0]
+                    else:
+                        if dish_name.split('(')[1] == 'Полный обед) ':
+                            price = 280
+                        else:
+                            price = 260
+                if int(old_amount) > int(amount):
+                    difference = int(old_amount) - int(amount)
+                    new_price = int(old_price) - (int(price) * difference)
+                elif int(old_amount) == int(amount):
+                    new_price = int(old_price)
+                else:
+                    difference = int(amount) - int(old_amount)
+                    new_price = int(old_price) + (int(price) * difference)
+                old_order = old_order.replace(old_dish, new_dish)
+                cur.execute("UPDATE dishes_basket SET \"order\" = %s, price = %s WHERE day = %s AND customer_id = %s",
+                            (old_order, new_price, weekday, tg_id,))
+                db.commit()
     finally:
         db.close()
         cur.close()
