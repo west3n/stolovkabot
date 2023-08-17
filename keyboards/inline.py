@@ -291,23 +291,6 @@ async def bakery_menu_paginate(current_index, results, tg_id) -> InlineKeyboardM
     return markup
 
 
-# async def change_basket_kb(dish, amount):
-#     markup = InlineKeyboardMarkup()
-#     for bask in basket:
-#         count_basket = bask[1].count('\n') + 1
-#         for y in range(0, count_basket):
-#             x = bask[1].split("\n")[y].split("-")[0]
-#             count = bask[1].split("\n")[y].split("-")[1]
-#             button = InlineKeyboardButton(f'{dish}...', callback_data=f'test')
-#             small = InlineKeyboardButton(f"◀️", callback_data=f"prevcount")
-#             count_button = InlineKeyboardButton(f"{count}", callback_data="test")
-#             big = InlineKeyboardButton(f"▶️", callback_data=f"nextcount")
-#             delete = InlineKeyboardButton(f"❌", callback_data=f"nextcount")
-#             markup.row(button)
-#             markup.row(small, count_button, big, delete)
-#     return markup
-
-
 async def select_weekday_basket(weekdays_list):
     markup = InlineKeyboardMarkup()
     for weekday in weekdays_list:
@@ -331,12 +314,16 @@ async def change_basket_kb(weekday, tg_id):
 
 
 async def change_dish_kb(count):
-    numbers = re.findall(r'\d+', count)
-    count = [int(number) for number in numbers][0]
+    try:
+        count = count.split(" ")[0]
+    except AttributeError:
+        count = count
     markup = InlineKeyboardMarkup()
-    small = InlineKeyboardButton(f"◀️", callback_data=f"prevcount")
-    count_button = InlineKeyboardButton(f"{count}", callback_data="test")
-    big = InlineKeyboardButton(f"▶️", callback_data=f"nextcount")
-    delete = InlineKeyboardButton(f"❌", callback_data=f"nextcount")
+    small = InlineKeyboardButton(f"◀️", callback_data=f"prevcount:{count}")
+    count_button = InlineKeyboardButton(f"{count}", callback_data=count)
+    big = InlineKeyboardButton(f"▶️", callback_data=f"nextcount:{count}")
+    delete = InlineKeyboardButton(f"❌", callback_data=f"deletecount")
     markup.row(small, count_button, big, delete)
+    markup.row(InlineKeyboardButton(f"Подтвердить", callback_data=f'donecount:{count}'))
+    markup.row(InlineKeyboardButton(f'↩️ Назад', callback_data='backcount'))
     return markup

@@ -3,7 +3,7 @@ import datetime
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
-from aiogram.utils.exceptions import MessageToDeleteNotFound, MessageIdentifierNotSpecified
+from aiogram.utils.exceptions import MessageToDeleteNotFound, MessageIdentifierNotSpecified, MessageNotModified
 
 import handlers.main_menu
 from configuration import settings
@@ -34,6 +34,17 @@ class Changes(StatesGroup):
 
 
 async def handle_basket(call: types.CallbackQuery, state: FSMContext):
+    async with state.proxy() as data:
+        try:
+            await call.bot.delete_message(call.from_user.id, data.get('photo'))
+        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
+            pass
+        try:
+            for message in data.get('media_group'):
+                await call.bot.delete_message(call.message.chat.id, int(message.message_id))
+        except (MessageToDeleteNotFound, MessageIdentifierNotSpecified, TypeError, AttributeError):
+            pass
+    await state.finish()
     text = await db_basket.get_basket(call.from_user.id)
     if len(text) > 1:
         async with state.proxy() as data:
@@ -43,42 +54,9 @@ async def handle_basket(call: types.CallbackQuery, state: FSMContext):
             data['weekday_buttons'] = weekday_buttons
     basket_sum = await db_basket.get_basket_sum(call.from_user.id)
     header = f'<b>Моя корзина:</b> <em>({basket_sum} ₽)</em>\n\n'
-    meals_dict = {}
-    for day, meals, price in text:
-        for line in meals.split('\n'):
-            parts = line.split(' : ')
-            if len(parts) == 2:
-                item_description, quantity = parts[0], parts[1]
-                quantity_parts = quantity.split(' ')
-                if len(quantity_parts) == 2:
-                    item_quantity = int(quantity_parts[0])
-                    item_name = item_description
-                    if item_name in meals_dict:
-                        meals_dict[item_name] += item_quantity
-                    else:
-                        meals_dict[item_name] = item_quantity
-    formatted_meals = '\n'.join([f"{item} : {quantity} шт." for item, quantity in meals_dict.items()])
-    formatted_text = header + '\n\n'.join([f"<b>{day}:</b>\n{formatted_meals}\n<b>Цена:</b> "
-                                           f"<em>{price:.1f}₽</em>" for day, _, price in text])
-    async with state.proxy() as data:
-        if not data.get('cap'):
-            await call.message.edit_text(formatted_text, reply_markup=await inline.basket_menu())
-        else:
-            try:
-                for message in data.get('media_group'):
-                    await call.bot.delete_message(call.message.chat.id, int(message.message_id))
-            except (MessageToDeleteNotFound, MessageIdentifierNotSpecified, TypeError, AttributeError):
-                pass
-            try:
-                await call.bot.delete_message(call.from_user.id, data.get('cap'))
-            except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
-                pass
-            try:
-                await call.bot.delete_message(call.from_user.id, data.get("photo"))
-            except (MessageToDeleteNotFound, MessageIdentifierNotSpecified):
-                pass
-            await state.finish()
-            await call.message.answer(formatted_text, reply_markup=await inline.basket_menu())
+    formatted_text = header + '\n\n'.join([f"<b>{day}:</b>\n{meals}\n<b>Цена:</b> "
+                                           f"<em>{price:.1f}₽</em>" for day, meals, price in text])
+    await call.message.edit_text(formatted_text, reply_markup=await inline.basket_menu())
 
 
 async def handle_drink(call: types.CallbackQuery, state: FSMContext):
@@ -349,14 +327,49 @@ async def change_basket(call: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
         await state.set_state(Changes.change.state)
         basket = await db_basket.get_basket(call.from_user.id)
-        if call.data.endswith('_change'):
+        if call.data == 'deletecount':
+            await db_basket.delete_dish_from_basket(data.get('dish'), data.get('weekday'), call.from_user.id)
+            weekday = data.get('weekday')
+            basket = await db_basket.get_basket_by_day(weekday, call.from_user.id)
+            await call.answer(f"{data.get('dish')} удалено из корзины!",
+                              show_alert=True)
+            if basket:
+                await call.message.edit_text(
+                    f"Вы выбрали {weekday}\nВыберите пункт, который хотите изменить:",
+                    reply_markup=await inline.change_basket_kb(weekday, call.from_user.id))
+            else:
+                await state.finish()
+                await handlers.main_menu.main_menu_call(call)
+        elif call.data == 'backcount':
+            weekday = data.get('weekday')
+            await call.message.edit_text(
+                f"Вы выбрали {weekday}\nВыберите пункт, который хотите изменить:",
+                reply_markup=await inline.change_basket_kb(weekday, call.from_user.id))
+        elif call.data.startswith('prevcount') or call.data.startswith('nextcount'):
+            callback_data_count = call.data.split(":")
+            count = int(callback_data_count[1])
+            action_count = callback_data_count[0]
+            if action_count == "nextcount":
+                if count + 1 <= 30:
+                    count += 1
+                else:
+                    count = 1
+            elif action_count == "prevcount":
+                if count > 1:
+                    count -= 1
+                else:
+                    count = 30
+            data['count'] = count
+            await call.message.edit_reply_markup(reply_markup=await inline.change_dish_kb(count))
+        elif call.data.endswith('_change'):
             dish_index = call.data.split('_')[0]
             amount = call.data.split('_')[1]
             basket = await db_basket.get_basket_by_day(data.get('weekday'), call.from_user.id)
             dish = basket[3].split('\n')[int(dish_index)].split(':')[0]
-            data['dish'] = dish
+            data['dish'] = basket[3].split('\n')[int(dish_index)]
             data['amount'] = amount
-            await call.message.edit_text(f"Выберите новое количество или удалите <b>{dish}:</b>", reply_markup=await inline.change_dish_kb(amount))
+            await call.message.edit_text(f"Выберите новое количество или удалите <b>{dish}:</b>",
+                                         reply_markup=await inline.change_dish_kb(amount))
         elif call.data.startswith('day_'):
             weekday = call.data.split('_')[1]
             data['weekday'] = weekday
@@ -367,6 +380,7 @@ async def change_basket(call: types.CallbackQuery, state: FSMContext):
             weekday = call.data.split('_')[1]
             await db_basket.delete_basket_by_day(weekday, call.from_user.id)
             basket = await db_basket.get_basket(call.from_user.id)
+            await state.finish()
             if basket:
                 await handle_basket(call, state)
             else:
@@ -381,11 +395,14 @@ async def change_basket(call: types.CallbackQuery, state: FSMContext):
                     "Выберите день, в котором хотите изменить данные:",
                     reply_markup=await inline.select_weekday_basket(weekday_buttons))
             else:
-                weekday = basket[0][0]
-                data['weekday'] = weekday
-                await call.message.edit_text(
-                    f"Вы выбрали {weekday}\nВыберите пункт, который хотите изменить:",
-                    reply_markup=await inline.change_basket_kb(weekday, call.from_user.id))
+                try:
+                    weekday = basket[0][0]
+                    data['weekday'] = weekday
+                    await call.message.edit_text(
+                        f"Вы выбрали {weekday}\nВыберите пункт, который хотите изменить:",
+                        reply_markup=await inline.change_basket_kb(weekday, call.from_user.id))
+                except MessageNotModified:
+                    await handle_basket(call, state)
 
 
 def register(dp: Dispatcher):
